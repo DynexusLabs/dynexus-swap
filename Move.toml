@@ -16,3 +16,7 @@ local = "../dynexus-forge"
 #git = "https://github.com/aptos-labs/aptos-framework.git"
 #rev = "mainnet"
 #subdir = "aptos-framework"
+
+
+[dependencies]
+AptosMoveUtils = { git = "https://github.com/mrathod05/aptos-move-utils.git", rev = "mainnet" }

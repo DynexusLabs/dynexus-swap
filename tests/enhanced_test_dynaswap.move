@@ -55,14 +55,15 @@ module dynexus_swap::enhanced_test_dynaswap {
         decimals: u8,
         supply: u64
     ): address {
-        let (_, token) = token_factory::create_token(
+        let (_, _,  token) = token_factory::create_test_token(
             owner,
             name,
             symbol,
             decimals,
             supply,
             utf8(b""),
-            utf8(b"")
+            utf8(b""),
+            0
         );
         token
     }

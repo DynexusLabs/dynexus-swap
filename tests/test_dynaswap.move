@@ -9,6 +9,7 @@ module dynexus_swap::test_dynaswap {
     use aptos_framework::genesis;
     use aptos_framework::object;
     use aptos_framework::primary_fungible_store;
+    use dev::utils::print_formatted;
     use dynexus_forge::token_factory;
     use dynexus_swap::dex;
 
@@ -38,7 +39,7 @@ module dynexus_swap::test_dynaswap {
     fun setup(admin: &signer) {
         genesis::setup();
         create_account_for_test(address_of(admin));
-        token_factory::initalize_token_factory(admin);
+        token_factory::initalize_token_factory_with_out_genesis(admin);
         dex::test_init_dex(admin);
     }
 
@@ -65,25 +66,27 @@ module dynexus_swap::test_dynaswap {
     fun create_token_pair_with_pool(issuer: &signer): (signer, address, address, address) {
         let provider = create_account_for_test(@0x3);
 
-        let (_, tokenA) =
-            token_factory::create_token(
+        let (_, _, tokenA) =
+            token_factory::create_test_token(
                 issuer,
                 utf8(b"TA"),
                 utf8(b"TA"),
                 8,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                0
             );
-        let (_, tokenB) =
-            token_factory::create_token(
+        let (_,_, tokenB) =
+            token_factory::create_test_token(
                 issuer,
                 utf8(b"TB"),
                 utf8(b"TB"),
                 8,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                1
             );
 
 
@@ -102,19 +105,21 @@ module dynexus_swap::test_dynaswap {
         owner: &signer,
         name: String,
         symbol: String,
-        decimals: u8
+        decimals: u8,
+        index: u64
     ): address {
-        let (_, token) =
-            token_factory::create_token(
+        let (_, _,addre) =
+            token_factory::create_test_token(
                 owner,
                 name,
                 symbol,
                 decimals,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                index
             );
-        token
+        addre
     }
 
     fun test_mint_token(
@@ -138,26 +143,28 @@ module dynexus_swap::test_dynaswap {
         let (token_a_name, token_b_name) = (utf8(b"Token A"), utf8(b"Token b"));
 
         // Initialize two test tokens
-        let (_, tokenA) =
-            token_factory::create_token(
+        let (_,_, tokenA) =
+            token_factory::create_test_token(
                 owner,
                 token_a_name,
                 utf8(b"TA"),
                 8,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                0
             );
 
-        let (_, tokenB) =
-            token_factory::create_token(
+        let (_,_, tokenB) =
+            token_factory::create_test_token(
                 owner,
                 token_b_name,
                 utf8(b"TB"),
                 8,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                1
             );
 
         let amount = 100;
@@ -188,26 +195,28 @@ module dynexus_swap::test_dynaswap {
         let (token_a_name, token_b_name) = (utf8(b"Token A"), utf8(b"Token b"));
 
         // Initialize two test tokens
-        let (_, tokenA) =
-            token_factory::create_token(
+        let (_,_, tokenA) =
+            token_factory::create_test_token(
                 token_a_issuer,
                 token_a_name,
                 utf8(b"TA"),
                 8,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                0
             );
 
-        let (_, tokenB) =
-            token_factory::create_token(
+        let (_,_, tokenB) =
+            token_factory::create_test_token(
                 token_b_issuer,
                 token_b_name,
                 utf8(b"TB"),
                 8,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                1
             );
 
         let amount = 1000;
@@ -228,15 +237,16 @@ module dynexus_swap::test_dynaswap {
         let provider = create_account_for_test(@0xB);
         let token_b_name = utf8(b"Token B");
 
-        let (_, tokenB) =
-            token_factory::create_token(
+        let (_,_, tokenB) =
+            token_factory::create_test_token(
                 &provider,
                 token_b_name,
                 utf8(b"TB"),
                 9,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                0
             );
 
         token_factory::mint_token(&provider, address_of(&issuer), tokenB, 1000);
@@ -254,26 +264,28 @@ module dynexus_swap::test_dynaswap {
         let token_b_name = utf8(b"Token B");
         let token_a_name = utf8(b"Token A");
 
-        let (_, tokenA) =
-            token_factory::create_token(
+        let (_,_, tokenA) =
+            token_factory::create_test_token(
                 &provider,
                 token_a_name,
                 utf8(b"TA"),
                 9,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                0
             );
 
-        let (_, tokenB) =
-            token_factory::create_token(
+        let (_,_, tokenB) =
+            token_factory::create_test_token(
                 &provider,
                 token_b_name,
                 utf8(b"TB"),
                 9,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                1
             );
 
         token_factory::mint_token(&provider, address_of(&issuer), tokenB, 1000);
@@ -293,26 +305,28 @@ module dynexus_swap::test_dynaswap {
         let (token_a_name, token_b_name) = (utf8(b"Token A"), utf8(b"Token b"));
 
         // Initialize two test tokens
-        let (_, tokenA) =
-            token_factory::create_token(
+        let (_, _,tokenA) =
+            token_factory::create_test_token(
                 &token_a_issuer,
                 token_a_name,
                 utf8(b"TA"),
                 9,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                0
             );
 
-        let (_, tokenB) =
-            token_factory::create_token(
+        let (_, _, tokenB) =
+            token_factory::create_test_token(
                 &token_a_issuer,
                 token_b_name,
                 utf8(b"TB"),
                 9,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                1
             );
 
         // Mint initial tokens to liquidity provider
@@ -340,8 +354,8 @@ module dynexus_swap::test_dynaswap {
         let symbol = fungible_asset::symbol(lp_token);
         let decimals = fungible_asset::decimals(lp_token);
         assert!(decimals == 9, E_INVALID_LP_METADATA); // Should use higher decimals (9 > 6)
-        assert!(symbol == utf8(b"DYLP-TA-TB"), E_INVALID_LP_METADATA);
-        assert!(name == utf8(b"DynaSwap LP Token TA-TB"), E_INVALID_LP_METADATA);
+        assert!(symbol == utf8(b"DYNEXUS-TA-TB"), E_INVALID_LP_METADATA);
+        assert!(name == utf8(b"DYNEXUS LP Token TA-TB"), E_INVALID_LP_METADATA);
     }
 
     #[test(admin = @dynexus_swap)]
@@ -352,8 +366,8 @@ module dynexus_swap::test_dynaswap {
         let issuer = create_account_for_test(@0x1);
         let provider = create_account_for_test(@0x2);
 
-        let tokenA = test_create_token(&issuer, utf8(b"TKA"), utf8(b"A"), 6);
-        let tokenB = test_create_token(&issuer, utf8(b"TKB"), utf8(b"B"), 6);
+        let tokenA = test_create_token(&issuer, utf8(b"TKA"), utf8(b"A"), 6, 0);
+        let tokenB = test_create_token(&issuer, utf8(b"TKB"), utf8(b"B"), 6, 1);
 
         test_mint_token(&issuer, address_of(&provider), tokenA, 1000);
         test_mint_token(&issuer, address_of(&provider), tokenB, 1000);
@@ -369,8 +383,8 @@ module dynexus_swap::test_dynaswap {
         let issuer = create_account_for_test(@0x3);
         let provider = create_account_for_test(@0x4);
 
-        let tokenA = test_create_token(&issuer, utf8(b"TKA"), utf8(b"A"), 8);
-        let tokenB = test_create_token(&issuer, utf8(b"TKB"), utf8(b"B"), 8);
+        let tokenA = test_create_token(&issuer, utf8(b"TKA"), utf8(b"A"), 8, 0);
+        let tokenB = test_create_token(&issuer, utf8(b"TKB"), utf8(b"B"), 8, 1);
 
         test_mint_token(&issuer, address_of(&provider), tokenA, 1000);
         test_mint_token(&issuer, address_of(&provider), tokenB, 1000);
@@ -385,7 +399,6 @@ module dynexus_swap::test_dynaswap {
     }
 
     #[test(admin = @dynexus_swap)]
-    #[expected_failure(abort_code = token_factory::E_SYMBOL_TOO_LONG)]
     fun test_lp_metadata_long_names(admin: &signer) {
         setup(admin);
 
@@ -396,17 +409,21 @@ module dynexus_swap::test_dynaswap {
             &issuer,
             utf8(b"SuperTokenAlpha"),
             utf8(b"ALPHA"),
-            9
+            9,0
         );
         let tokenB = test_create_token(
             &issuer,
             utf8(b"BetaTokenBravo"),
             utf8(b"BETA"),
-            9
+            9,
+            1
         );
 
         test_mint_token(&issuer, address_of(&provider), tokenA, 1000);
         test_mint_token(&issuer, address_of(&provider), tokenB, 1000);
+
+        print_formatted(b"tokenA", tokenA);
+        print_formatted(b"tokenB", tokenB);
 
         dex::create_pool(&provider, tokenA, tokenB, 200, 200);
         let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
@@ -417,11 +434,12 @@ module dynexus_swap::test_dynaswap {
 
         // Name should still be correctly constructed
         assert!(
-            name == utf8(b"DynaSwap LP Token ALPHA-BETA"),
+            name == utf8(b"DYNEXUS LP Token ALPHA-BETA"),
             E_INVALID_LP_METADATA
         );
+        print_formatted(b"symbol", symbol);
         assert!(
-            symbol == utf8(b"DYLP-ALPHA-BETA"),
+            symbol == utf8(b"DYNEXUS-LP-ALPHA-BETA"),
             E_INVALID_LP_METADATA
         );
     }
@@ -475,25 +493,27 @@ module dynexus_swap::test_dynaswap {
         let user = create_account_for_test(@0x4);
 
         // Step 3: Create and register 2 tokens
-        let (_, tokenA) =
-            token_factory::create_token(
+        let (_, _, tokenA) =
+            token_factory::create_test_token(
                 &issuer,
                 utf8(b"Gold"),
                 utf8(b"TG"),
                 6,
                 quants(1000, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                0
             );
-        let (_, tokenB) =
-            token_factory::create_token(
+        let (_, _, tokenB) =
+            token_factory::create_test_token(
                 &issuer,
                 utf8(b"Silver"),
                 utf8(b"TS"),
                 6,
                 quants(1000, 8),
                 utf8(b""),
-                utf8(b"")
+                utf8(b""),
+                1
             );
 
         token_factory::mint_token(&issuer, address_of(&user), tokenA, quants(100, 8));
@@ -808,23 +828,25 @@ module dynexus_swap::test_dynaswap {
         let provider = create_account_for_test(@0x6789);
 
         // Create tokens with different decimals
-        let (_, tokenA) = token_factory::create_token(
+        let (_,_, tokenA) = token_factory::create_test_token(
             &issuer,
             utf8(b"Token6"),
             utf8(b"T8"),
             6,
             quants(100, 6),
             utf8(b""),
-            utf8(b"")
+            utf8(b""),
+            0
         );
-        let (_, tokenB) = token_factory::create_token(
+        let (_,_, tokenB) = token_factory::create_test_token(
             &issuer,
             utf8(b"Token18"),
             utf8(b"T9"),
             18,
             quants(100, 8),
             utf8(b""),
-            utf8(b"")
+            utf8(b""),
+            1
         );
 
         // Fund provider

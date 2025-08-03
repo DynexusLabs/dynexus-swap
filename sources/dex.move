@@ -22,10 +22,10 @@ module dynexus_swap::dex {
     //
     // Constants
     //
-    /// Contract addresss
+    /// Contract address
     const CA: address = @dynexus_swap;
-    const DEX_ACCOUNT_SEED: vector<u8> = b"DYNASWAP_DEX";
-    const POOL_OBJ_SEED: vector<u8> = b"DYNASWAP_POOL_";
+    const DEX_ACCOUNT_SEED: vector<u8> = b"DYNEXUS_DEX";
+    const POOL_OBJ_SEED: vector<u8> = b"DYNEXUS_POOL_";
     const MAX_U64: u256 = 18446744073709551615;
     const FEE_DENOMINATOR: u64 = 10000;
 
@@ -126,7 +126,7 @@ module dynexus_swap::dex {
     }
 
     #[event]
-    struct DexInitialzedEvent has drop, store {
+    struct DexInitializedEvent has drop, store {
         default_fee_percent: u64,
         platform_fee_percent: u64,
         created_at: u64
@@ -222,7 +222,7 @@ module dynexus_swap::dex {
         );
 
         event::emit(
-            DexInitialzedEvent {
+            DexInitializedEvent {
                 default_fee_percent,
                 platform_fee_percent,
                 created_at: timestamp::now_seconds()
@@ -264,12 +264,12 @@ module dynexus_swap::dex {
         let pool_seed = generate_pool_seed(&token_x_sorted, &token_y_sorted);
         let obj_signer = &object::generate_signer_for_extending(&dex_config.extend_ref);
         let pool_addr = object::create_object_address(&address_of(obj_signer), pool_seed);
-        assert_pool_not_exsist(&pool_addr);
+        assert_pool_not_exist(&pool_addr);
 
         // Initialize LP token
         let constructor_ref = &object::create_named_object(obj_signer, pool_seed);
         let (lp_token_name, lp_token_symbol, lp_token_decimals) =
-            initalize_lp_token(token_x_sorted, token_y_sorted);
+            initialize_lp_token(token_x_sorted, token_y_sorted);
 
         primary_fungible_store::create_primary_store_enabled_fungible_asset(
             constructor_ref,
@@ -293,7 +293,7 @@ module dynexus_swap::dex {
         primary_fungible_store::transfer(owner, token_y_metadata, pool_addr, amount_y_sorted);
 
         // 2. CALCULATE AND MINT LP TOKENS
-        let initial_lp_token = calculate_inital_lp_tokens(amount_x_sorted, amount_y_sorted);
+        let initial_lp_token = calculate_initial_lp_tokens(amount_x_sorted, amount_y_sorted);
         let lp_asset = fungible_asset::mint(&mint_ref, initial_lp_token);
         primary_fungible_store::deposit(address_of(owner), lp_asset);
 
@@ -342,7 +342,7 @@ module dynexus_swap::dex {
         amount_y_min: u64,       // Minimum acceptable TokenB (after slippage)
     ) acquires LiquidityPool {
         let pool_addr = get_pool_object_address(token_x, token_y);
-        assert_pool_exsist(&pool_addr);
+        assert_pool_exist(&pool_addr);
         let pool = borrow_global_mut<LiquidityPool>(pool_addr);
 
 
@@ -410,7 +410,7 @@ module dynexus_swap::dex {
         let pool_addr = get_pool_object_address(token_x, token_y);
         assert!(lp_amount > 0, E_ZERO_AMOUNT);
 
-        assert_pool_exsist(&pool_addr);
+        assert_pool_exist(&pool_addr);
         let pool = borrow_global_mut<LiquidityPool>(pool_addr);
 
         assert!(pool.lp_token_supply >= lp_amount, E_INSUFFICIENT_LIQUIDITY);
@@ -464,7 +464,7 @@ module dynexus_swap::dex {
 
         let pool_addr = get_pool_object_address(token_in, token_out);
         assert!(amount_in > 0, E_INSUFFICIENT_INPUT_AMOUNT);
-        assert_pool_exsist(&pool_addr);
+        assert_pool_exist(&pool_addr);
         let pool = borrow_global_mut<LiquidityPool>(pool_addr);
 
 
@@ -548,14 +548,14 @@ module dynexus_swap::dex {
         let seed = generate_pool_seed(&token_x, &token_y);
         let dex_addr = get_dex_object_address();
         let pool_addr = object::create_object_address(&dex_addr, seed);
-        assert_pool_exsist(&pool_addr);
+        assert_pool_exist(&pool_addr);
         pool_addr
     }
 
     public fun get_lp_address(
         pool_address: address
     ): address acquires LiquidityPool {
-        assert_pool_exsist(&pool_address);
+        assert_pool_exist(&pool_address);
         let pool = borrow_global<LiquidityPool>(pool_address);
         pool.lp_token
     }
@@ -596,14 +596,14 @@ module dynexus_swap::dex {
         );
 
         let dex_addr = get_dex_object_address();
-        assert_dex_exsist(&dex_addr);
+        assert_dex_exist(&dex_addr);
 
         let dex= borrow_global<DexConfig>(dex_addr);
         let total_fees = dex.platform_fee_percent + dex.default_fee_percent;
         let amount_in_with_fee = (amount_in * (10000 - total_fees));
-        let numetator = (amount_in_with_fee as u128) * (reserve_out as u128);
+        let numerator = (amount_in_with_fee as u128) * (reserve_out as u128);
         let denominator = ((reserve_in as u128) * (10000 as u128)) + (amount_in_with_fee as u128);
-        (numetator / denominator) as u64
+        (numerator / denominator) as u64
     }
 
     public fun calculate_lp_value(
@@ -711,7 +711,7 @@ module dynexus_swap::dex {
     ): vector<u8> {
         let (token_x, token_y, _, _) = sort_token(*token_x_addr, *token_y_addr, 0, 0);
         let seed = vector::empty<u8>();
-        seed.append(b"dynaswap_pool_v1_");
+        seed.append(b"dynexus_pool_v1_");
         seed.append(to_bytes(&token_x));
         seed.append(b"_");
         seed.append(to_bytes(&token_y));
@@ -724,22 +724,22 @@ module dynexus_swap::dex {
         assert!(amount_x > 0 && amount_y > 0, E_ZERO_AMOUNT);
     }
 
-    /// initalize LP token metadata
-    fun initalize_lp_token(token_x: address, token_y: address): (String, String, u8) {
+    /// initialize LP token metadata
+    fun initialize_lp_token(token_x: address, token_y: address): (String, String, u8) {
         let token_x_metadata = token_factory::get_token_metadata(token_x);
         let token_y_metadata = token_factory::get_token_metadata(token_y);
 
         let token_x_symbol = fungible_asset::symbol(token_x_metadata);
         let token_y_symbol = fungible_asset::symbol(token_y_metadata);
 
-        // Create LP token name (e.g., "DynaSwap LP Token X-Y")
-        let lp_token_name = utf8(b"DynaSwap LP Token ");
+        // Create LP token name (e.g., "DYNEXUS LP Token X-Y")
+        let lp_token_name = utf8(b"DYNEXUS LP Token ");
         lp_token_name.append(token_x_symbol);
         lp_token_name.append(utf8(b"-"));
         lp_token_name.append(token_y_symbol);
 
-        // Create LP token symbol (e.g., "DYNALP-X-Y")
-        let lp_token_symbol = utf8(b"DYLP-");
+        // Create LP token symbol (e.g., "DYNEXUS-X-Y")
+        let lp_token_symbol = utf8(b"DYNEXUS-LP-");
         lp_token_symbol.append(token_x_symbol);
         lp_token_symbol.append(utf8(b"-"));
         lp_token_symbol.append(token_y_symbol);
@@ -757,8 +757,8 @@ module dynexus_swap::dex {
         (lp_token_name, lp_token_symbol, lp_token_decimals)
     }
 
-    /// Calculate initial LP tokens using grometric mean formula
-    fun calculate_inital_lp_tokens(amount_x: u64, amount_y: u64): u64 {
+    /// Calculate initial LP tokens using geometric mean formula
+    fun calculate_initial_lp_tokens(amount_x: u64, amount_y: u64): u64 {
 
         let product = (amount_x as u256) * (amount_y as u256);
         if (product == 0) return 0;
@@ -772,15 +772,15 @@ module dynexus_swap::dex {
 
     }
 
-    /// Deposis initial liquidity inito the pool
-    fun deposite_initial_liquidity(
+    /// Deposit initial liquidity into the pool
+    fun deposit_initial_liquidity(
         owner: &signer,
         pool_addr: address,
         token_x: address,
         token_y: address,
         amount_x: u64,
         amount_y: u64,
-        intial_lp_token: u64,
+        initial_lp_token: u64,
         mint_ref: &MintRef
     ) {
         // Transfer tokens from owner to pool
@@ -797,7 +797,7 @@ module dynexus_swap::dex {
         primary_fungible_store::deposit(pool_addr, token_y_fa);
 
         // Mint and distribute initial LP tokens
-        let lp_fa = fungible_asset::mint(mint_ref, intial_lp_token);
+        let lp_fa = fungible_asset::mint(mint_ref, initial_lp_token);
         primary_fungible_store::deposit(address_of(owner), lp_fa);
     }
 
@@ -841,7 +841,7 @@ module dynexus_swap::dex {
         (amount_x, amount_y)
     }
 
-    /// Get amount out with call fees calcualted
+    /// Get amount out with call fees calculated
     fun get_amount_out_with_fees(
         amount_in: u64,
         reserve_in: u64,
@@ -870,7 +870,7 @@ module dynexus_swap::dex {
     /// View reserves of a pool
     public fun get_pool_reserves(token_x: address, token_y: address): (u64, u64) acquires LiquidityPool {
         let pool_addr = get_pool_object_address(token_x, token_y);
-        assert_pool_exsist(&pool_addr);
+        assert_pool_exist(&pool_addr);
 
         let pool = borrow_global<LiquidityPool>(pool_addr);
         (pool.reserve_x, pool.reserve_y)
@@ -879,11 +879,11 @@ module dynexus_swap::dex {
     #[view]
     /// View Pool info
     /// # Returns
-    /// (lp_token, reserve_x, reserve_y, lp_token_supply, fee_percent, platform_fee_percent, platform_fee_recipien)
+    /// (lp_token, reserve_x, reserve_y, lp_token_supply, fee_percent, platform_fee_percent, platform_fee_recipient)
    public fun get_pool_info(
         pool_address: address
     ): (address, u64, u64, u64, u64, u64, address) acquires DexConfig, LiquidityPool {
-        assert_pool_exsist(&pool_address);
+        assert_pool_exist(&pool_address);
         let dex_address = get_dex_object_address();
 
         let dex = borrow_global<DexConfig>(dex_address);
@@ -902,17 +902,17 @@ module dynexus_swap::dex {
     //
 
     /// Assert if dex is exists
-    fun assert_dex_exsist(dex_address: &address) {
+    fun assert_dex_exist(dex_address: &address) {
         assert!(exists<DexConfig>(*dex_address), E_POOL_NOT_EXISTS);
     }
 
     /// Assert if pool is already exists at `pool_addr` address
-    fun assert_pool_exsist(pool_addr: &address) {
+    fun assert_pool_exist(pool_addr: &address) {
         assert!(exists<LiquidityPool>(*pool_addr), E_POOL_NOT_EXISTS);
     }
 
     /// Assert if pool is not exists at `pool_addr` address
-    fun assert_pool_not_exsist(pool_addr: &address) {
+    fun assert_pool_not_exist(pool_addr: &address) {
         assert!(!exists<LiquidityPool>(*pool_addr), E_POOL_ALREADY_EXISTS);
     }
 
