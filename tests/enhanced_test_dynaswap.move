@@ -5,7 +5,9 @@ module dynexus_swap::enhanced_test_dynaswap {
     use std::string::{utf8, String};
     use aptos_framework::account::{create_account_for_test, create_signer_for_test};
     use aptos_framework::genesis;
+    use aptos_framework::timestamp;
     use dynexus_forge::token_factory;
+    use dynexus_swap::test_dynaswap::max_single_swap;
     use dynexus_swap::dex;
 
     // Constants
@@ -30,7 +32,7 @@ module dynexus_swap::enhanced_test_dynaswap {
     fun setup(admin: &signer) {
         genesis::setup();
         create_account_for_test(address_of(admin));
-        token_factory::initalize_token_factory(admin);
+        token_factory::initalize_token_factory_with_out_genesis(admin);
         dex::test_init_dex(admin);
     }
 
@@ -53,7 +55,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         name: String,
         symbol: String,
         decimals: u8,
-        supply: u64
+        supply: u64,
+        index: u64
     ): address {
         let (_, _,  token) = token_factory::create_test_token(
             owner,
@@ -63,7 +66,7 @@ module dynexus_swap::enhanced_test_dynaswap {
             supply,
             utf8(b""),
             utf8(b""),
-            0
+            index
         );
         token
     }
@@ -76,8 +79,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let issuer = create_account_for_test(@0x1);
         let provider = create_account_for_test(@0x2);
 
-        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(100000, 8));
-        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(100000, 8));
+        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(100000, 8),0);
+        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(100000, 8),1);
 
         // Fund provider
         token_factory::mint_token(&issuer, address_of(&provider), tokenA, quants(10000, 8));
@@ -87,7 +90,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         dex::create_pool(&provider, tokenA, tokenB, quants(10, 8), quants(10, 8));
 
         // Record initial k = x * y
-        let (reserve_x_initial, reserve_y_initial) = dex::get_pool_reserves(tokenA, tokenB);
+        let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
+        let (reserve_x_initial, reserve_y_initial) = dex::get_pool_reserves(pool_addr);
         let k_initial = reserve_x_initial * reserve_y_initial;
 
         // Perform multiple swaps
@@ -96,22 +100,24 @@ module dynexus_swap::enhanced_test_dynaswap {
         token_factory::mint_token(&issuer, address_of(&trader), tokenB, quants(500, 8));
 
         // Swap A -> B
-        let (res_x, res_y) = dex::get_pool_reserves(tokenA, tokenB);
-        let amount_out = dex::get_amount_out(quants(100, 8), res_x, res_y);
-        dex::swap(&trader, tokenA, tokenB, quants(100, 8), amount_out);
+        let (res_x, res_y) = dex::get_pool_reserves(pool_addr);
+        let amount_in = max_single_swap(res_x);
+        let amount_out = dex::get_amount_out(amount_in, res_x, res_y);
+        dex::swap(&trader, tokenA, tokenB, amount_in, amount_out, timestamp::now_seconds() + 10);
 
         // Check k increased (due to fees)
-        let (reserve_x_after, reserve_y_after) = dex::get_pool_reserves(tokenA, tokenB);
+        let (reserve_x_after, reserve_y_after) = dex::get_pool_reserves(pool_addr);
         let k_after = reserve_x_after * reserve_y_after;
         assert!(k_after > k_initial, E_INVALID_ARITHMETIC);
 
         // Swap B -> A
-        let (res_x2, res_y2) = dex::get_pool_reserves(tokenA, tokenB);
-        let amount_out2 = dex::get_amount_out(quants(50, 8), res_y2, res_x2);
-        dex::swap(&trader, tokenB, tokenA, quants(50, 8), amount_out2);
+        let (res_x2, res_y2) = dex::get_pool_reserves(pool_addr);
+        let amount_in2 = max_single_swap(res_y2);
+        let amount_out2 = dex::get_amount_out(amount_in2, res_y2, res_x2);
+        dex::swap(&trader, tokenB, tokenA, amount_in2, amount_out2, timestamp::now_seconds() + 10);
 
         // Check k increased again
-        let (reserve_x_final, reserve_y_final) = dex::get_pool_reserves(tokenA, tokenB);
+        let (reserve_x_final, reserve_y_final) = dex::get_pool_reserves(pool_addr);
         let k_final = reserve_x_final * reserve_y_final;
         assert!(k_final > k_after, E_INVALID_ARITHMETIC);
     }
@@ -122,8 +128,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let issuer = create_account_for_test(@0x1);
         let provider = create_account_for_test(@0x2);
 
-        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(100000, 8));
-        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(100000, 8));
+        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(100000, 8),0);
+        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(100000, 8),1);
 
         // Fund and create pool
         token_factory::mint_token(&issuer, address_of(&provider), tokenA, quants(10000, 8));
@@ -139,7 +145,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let i = 0;
         while (i < swap_amounts.length()) {
             let amount = *swap_amounts.borrow(i);
-            let (res_x, res_y) = dex::get_pool_reserves(tokenA, tokenB);
+            let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
+            let (res_x, res_y) = dex::get_pool_reserves(pool_addr);
             let expected_out = dex::get_amount_out(amount, res_x, res_y);
 
             // Calculate price per unit (how much tokenB per tokenA)
@@ -166,7 +173,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         };
 
         // Test that larger swaps have more price impact
-        let (res_x, res_y) = dex::get_pool_reserves(tokenA, tokenB);
+        let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
+        let (res_x, res_y) = dex::get_pool_reserves(pool_addr);
         let small_amount = quants(1, 7); // 0.1 tokens
         let large_amount = quants(2, 8); // 2 tokens
 
@@ -188,8 +196,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let issuer = create_account_for_test(@0x1);
         let provider = create_account_for_test(@0x2);
 
-        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(100000, 8));
-        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(100000, 8));
+        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(100000, 8),0);
+        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(100000, 8),1);
 
         token_factory::mint_token(&issuer, address_of(&provider), tokenA, quants(10000, 8));
         token_factory::mint_token(&issuer, address_of(&provider), tokenB, quants(10000, 8));
@@ -217,8 +225,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let issuer = create_account_for_test(@0x1);
         let provider = create_account_for_test(@0x2);
 
-        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(1000000, 8));
-        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(1000000, 8));
+        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(1000000, 8),0);
+        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(1000000, 8),1);
 
         token_factory::mint_token(&issuer, address_of(&provider), tokenA, quants(100000, 8));
         token_factory::mint_token(&issuer, address_of(&provider), tokenB, quants(100000, 8));
@@ -229,10 +237,11 @@ module dynexus_swap::enhanced_test_dynaswap {
         // Test that swaps still work correctly
         let trader = create_account_for_test(@0x3);
         token_factory::mint_token(&issuer, address_of(&trader), tokenA, quants(1000, 8));
-
-        let (res_x, res_y) = dex::get_pool_reserves(tokenA, tokenB);
-        let amount_out = dex::get_amount_out(quants(100, 8), res_x, res_y);
-        dex::swap(&trader, tokenA, tokenB, quants(100, 8), amount_out);
+        let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
+        let (res_x, res_y) = dex::get_pool_reserves(pool_addr);
+        let amount_in = max_single_swap(res_x);
+        let amount_out = dex::get_amount_out(amount_in, res_x, res_y);
+        dex::swap(&trader, tokenA, tokenB, amount_in, amount_out, timestamp::now_seconds() + 10);
 
         // Verify trader received some tokenB
         let tokenB_balance = token_factory::get_token_balance(&trader, tokenB);
@@ -246,8 +255,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let provider = create_account_for_test(@0x2);
 
         // Create tokens with very different decimals
-        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 2, quants(1000000, 2));  // 2 decimals
-        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 10, quants(1000000, 10)); // 10 decimals
+        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 2, quants(1000000, 2),0);  // 2 decimals
+        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 10, quants(1000000, 10), 1); // 10 decimals
 
         token_factory::mint_token(&issuer, address_of(&provider), tokenA, quants(10000, 2));
         token_factory::mint_token(&issuer, address_of(&provider), tokenB, quants(10000, 10));
@@ -263,11 +272,12 @@ module dynexus_swap::enhanced_test_dynaswap {
 
         // Perform multiple small swaps
         let i = 0;
+            let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
         while (i < 10) {
-            let (res_x, res_y) = dex::get_pool_reserves(tokenA, tokenB);
+            let (res_x, res_y) = dex::get_pool_reserves(pool_addr);
             let amount_out = dex::get_amount_out(quants(1, 2), res_x, res_y);
             if (amount_out > 0) {
-                dex::swap(&trader, tokenA, tokenB, quants(1, 2), amount_out);
+                dex::swap(&trader, tokenA, tokenB, quants(1, 2), amount_out, timestamp::now_seconds() + 10);
             };
             i += 1;
         };
@@ -285,8 +295,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let issuer = create_account_for_test(@0x1);
         let provider = create_account_for_test(@0x2);
 
-        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(1000000, 8));
-        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(1000000, 8));
+        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(1000000, 8), 0);
+        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(1000000, 8), 1);
 
         // Create large pool
         token_factory::mint_token(&issuer, address_of(&provider), tokenA, quants(100000, 8));
@@ -296,6 +306,7 @@ module dynexus_swap::enhanced_test_dynaswap {
         // Create multiple traders
         let traders = vector[@0x101, @0x102, @0x103, @0x104, @0x105];
         let i = 0;
+        let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
         while (i < 5) {
             let trader = *traders.borrow(i);
             token_factory::mint_token(&issuer, trader, tokenA, quants(10000, 8));
@@ -305,7 +316,7 @@ module dynexus_swap::enhanced_test_dynaswap {
         };
 
         // Record initial reserves
-        let (initial_x, initial_y) = dex::get_pool_reserves(tokenA, tokenB);
+        let (initial_x, initial_y) = dex::get_pool_reserves(pool_addr);
         let initial_k = initial_x * initial_y;
 
         // Execute high volume of trades
@@ -314,16 +325,16 @@ module dynexus_swap::enhanced_test_dynaswap {
             let trader_idx = trade_count % 5;
             let trader = *traders.borrow(trader_idx);
 
-            let amount = quants(100, 8) + (trade_count * quants(10, 8));
-            let (res_x, res_y) = dex::get_pool_reserves(tokenA, tokenB);
+            let (res_x, res_y) = dex::get_pool_reserves(pool_addr);
+            let amount = max_single_swap(res_x);
             let amount_out = dex::get_amount_out(amount, res_x, res_y);
 
-            dex::swap(&create_signer_for_test(trader), tokenA, tokenB, amount, amount_out);
+            dex::swap(&create_signer_for_test(trader), tokenA, tokenB, amount, amount_out, timestamp::now_seconds() + 10);
             trade_count += 1;
         };
 
         // Verify k increased (due to fees)
-        let (final_x, final_y) = dex::get_pool_reserves(tokenA, tokenB);
+        let (final_x, final_y) = dex::get_pool_reserves(pool_addr);
         let final_k = final_x * final_y;
         assert!(final_k > initial_k, E_INVALID_ARITHMETIC);
     }
@@ -335,8 +346,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let provider1 = create_account_for_test(@0x2);
         let provider2 = create_account_for_test(@0x3);
 
-        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(1000000, 8));
-        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(1000000, 8));
+        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(1000000, 8), 0);
+        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(1000000, 8), 1);
 
         // Fund providers
         token_factory::mint_token(&issuer, address_of(&provider1), tokenA, quants(100000, 8));
@@ -353,12 +364,14 @@ module dynexus_swap::enhanced_test_dynaswap {
         token_factory::mint_token(&issuer, address_of(&trader), tokenB, quants(10000, 8));
 
         // Large swap to create price imbalance
-        let (res_x, res_y) = dex::get_pool_reserves(tokenA, tokenB);
-        let amount_out = dex::get_amount_out(quants(500, 8), res_x, res_y);
-        dex::swap(&trader, tokenA, tokenB, quants(500, 8), amount_out);
+        let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
+        let (res_x, res_y) = dex::get_pool_reserves(pool_addr);
+        let amount_in = max_single_swap(res_x);
+        let amount_out = dex::get_amount_out(amount_in, res_x, res_y);
+        dex::swap(&trader, tokenA, tokenB, amount_in, amount_out, timestamp::now_seconds() + 10);
 
         // Check that price changed
-        let (new_res_x, new_res_y) = dex::get_pool_reserves(tokenA, tokenB);
+        let (new_res_x, new_res_y) = dex::get_pool_reserves(pool_addr);
         let old_ratio = res_x * pow10(8) / res_y;
         let new_ratio = new_res_x * pow10(8) / new_res_y;
         assert!(new_ratio != old_ratio, E_INVALID_PRICE);
@@ -372,8 +385,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let issuer = create_account_for_test(@0x1);
         let provider = create_account_for_test(@0x2);
 
-        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(100000, 8));
-        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(100000, 8));
+        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(100000, 8), 0);
+        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(100000, 8), 1);
 
         token_factory::mint_token(&issuer, address_of(&provider), tokenA, quants(10000, 8));
         token_factory::mint_token(&issuer, address_of(&provider), tokenB, quants(10000, 8));
@@ -383,12 +396,13 @@ module dynexus_swap::enhanced_test_dynaswap {
         let attacker = create_account_for_test(@0x3);
         token_factory::mint_token(&issuer, address_of(&attacker), tokenA, quants(1000, 8));
 
-        let (res_x_before, res_y_before) = dex::get_pool_reserves(tokenA, tokenB);
-        let amount_out = dex::get_amount_out(quants(100, 8), res_x_before, res_y_before);
+        let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
+        let (res_x_before, res_y_before) = dex::get_pool_reserves(pool_addr);
+        let amount_in = max_single_swap(res_x_before);
+        let amount_out = dex::get_amount_out(amount_in, res_x_before, res_y_before);
 
-        dex::swap(&attacker, tokenA, tokenB, quants(100, 8), amount_out);
-
-        let (res_x_after, res_y_after) = dex::get_pool_reserves(tokenA, tokenB);
+        dex::swap(&attacker, tokenA, tokenB, amount_in, amount_out, timestamp::now_seconds() + 10);
+        let (res_x_after, res_y_after) = dex::get_pool_reserves(pool_addr);
 
         // Verify reserves updated correctly
         assert!(res_x_after > res_x_before, E_INVALID_RESERVE); // X increased
@@ -401,8 +415,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let issuer = create_account_for_test(@0x1);
         let provider = create_account_for_test(@0x2);
 
-        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(100000, 8));
-        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(100000, 8));
+        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(100000, 8), 0);
+        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(100000, 8), 1);
 
         token_factory::mint_token(&issuer, address_of(&provider), tokenA, quants(10000, 8));
         token_factory::mint_token(&issuer, address_of(&provider), tokenB, quants(10000, 8));
@@ -415,10 +429,12 @@ module dynexus_swap::enhanced_test_dynaswap {
 
         // Multiple swaps should work correctly
         let i = 0;
+        let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
         while (i < 3) {
-            let (res_x, res_y) = dex::get_pool_reserves(tokenA, tokenB);
-            let amount_out = dex::get_amount_out(quants(50, 8), res_x, res_y);
-            dex::swap(&user, tokenA, tokenB, quants(50, 8), amount_out);
+            let (res_x, res_y) = dex::get_pool_reserves(pool_addr);
+            let amount_in = max_single_swap(res_x);
+            let amount_out = dex::get_amount_out(amount_in, res_x, res_y);
+            dex::swap(&user, tokenA, tokenB, amount_in, amount_out, timestamp::now_seconds() + 10);
             i += 1;
         };
 
@@ -435,8 +451,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let issuer = create_account_for_test(@0x1);
         let provider = create_account_for_test(@0x2);
 
-        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(1000000, 8));
-        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(1000000, 8));
+        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(1000000, 8),0);
+        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(1000000, 8) ,1);
 
         token_factory::mint_token(&issuer, address_of(&provider), tokenA, quants(100000, 8));
         token_factory::mint_token(&issuer, address_of(&provider), tokenB, quants(100000, 8));
@@ -454,13 +470,15 @@ module dynexus_swap::enhanced_test_dynaswap {
         token_factory::mint_token(&issuer, address_of(&trader), tokenA, quants(50000, 8));
 
         // Large swap to change price (A becomes cheaper)
-        let (res_x, res_y) = dex::get_pool_reserves(tokenA, tokenB);
-        let amount_out = dex::get_amount_out(quants(20000, 8), res_x, res_y);
-        dex::swap(&trader, tokenA, tokenB, quants(20000, 8), amount_out);
+        let (res_x, res_y) = dex::get_pool_reserves(pool_addr);
+        let amount_in = max_single_swap(res_x);
+        let amount_out = dex::get_amount_out(amount_in, res_x, res_y);
+        dex::swap(&trader, tokenA, tokenB, amount_in, amount_out, timestamp::now_seconds() + 10);
 
         // Provider removes all liquidity
         let lp_address = dex::get_lp_address(pool_addr);
         let lp_balance = token_factory::get_balance(address_of(&provider), lp_address);
+
         dex::remove_liquidity(&provider, tokenA, tokenB, lp_balance);
 
         // Check final balances
@@ -468,8 +486,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let final_b = token_factory::get_token_balance(&provider, tokenB);
 
         // Provider should have different token ratios now
-        let initial_ratio = ((initial_a as u128) * (pow10(8)as u128) / (initial_b as u128) as u64);
-        let final_ratio = ((final_a as u128) * (pow10(8) as u128) / (final_b as u128) as u64);
+        let initial_ratio = ((initial_a as u256) * (pow10(8)as u256) / (initial_b as u256) as u64);
+        let final_ratio = ((final_a as u256) * (pow10(8) as u256) / (final_b as u256) as u64);
         assert!(initial_ratio != final_ratio, E_INVALID_BALANCE);
     }
 
@@ -479,8 +497,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let issuer = create_account_for_test(@0x1);
         let provider = create_account_for_test(@0x2);
 
-        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(1000000, 8));
-        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(1000000, 8));
+        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(1000000, 8), 0);
+        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(1000000, 8), 1);
 
         token_factory::mint_token(&issuer, address_of(&provider), tokenA, quants(100000, 8));
         token_factory::mint_token(&issuer, address_of(&provider), tokenB, quants(100000, 8));
@@ -495,21 +513,23 @@ module dynexus_swap::enhanced_test_dynaswap {
         token_factory::mint_token(&issuer, address_of(&trader), tokenB, quants(50000, 8));
 
         let total_volume = 0;
+        let expected_platform_fee = 0;
         let trade_count = 0;
+        let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
         while (trade_count < 10) {
-            let amount = quants(100, 8) + (trade_count * quants(10, 8));
+            let (res_x, res_y) = dex::get_pool_reserves(pool_addr);
+            let amount = max_single_swap(res_x);
             total_volume +=  amount;
+            expected_platform_fee += ((amount as u128) * (PLATFORM_FEE_PERCENT as u128) / (FEE_DENOMINATOR as u128) as u64);
 
-            let (res_x, res_y) = dex::get_pool_reserves(tokenA, tokenB);
             let amount_out = dex::get_amount_out(amount, res_x, res_y);
-            dex::swap(&trader, tokenA, tokenB, amount, amount_out);
+            dex::swap(&trader, tokenA, tokenB, amount, amount_out, timestamp::now_seconds() + 10);
 
             trade_count += 1;
         };
 
         // Check accumulated fees
         let final_platform_fee = token_factory::get_balance(dex_config, tokenA);
-        let expected_platform_fee = total_volume * PLATFORM_FEE_PERCENT / FEE_DENOMINATOR;
         let actual_platform_fee = final_platform_fee - initial_platform_fee;
 
         assert!(actual_platform_fee == expected_platform_fee, E_INVALID_FEE);
@@ -522,8 +542,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         let issuer = create_account_for_test(@0x1);
         let provider = create_account_for_test(@0x2);
 
-        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(1000000, 8));
-        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(1000000, 8));
+        let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(1000000, 8),0);
+        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(1000000, 8), 1);
 
         token_factory::mint_token(&issuer, address_of(&provider), tokenA, quants(100000, 8));
         token_factory::mint_token(&issuer, address_of(&provider), tokenB, quants(100000, 8));
@@ -540,9 +560,10 @@ module dynexus_swap::enhanced_test_dynaswap {
 
         let trade_count = 0;
         while (trade_count < 5) {
-            let (res_x, res_y) = dex::get_pool_reserves(tokenA, tokenB);
-            let amount_out = dex::get_amount_out(quants(1000, 8), res_x, res_y);
-            dex::swap(&trader, tokenA, tokenB, quants(1000, 8), amount_out);
+            let (res_x, res_y) = dex::get_pool_reserves(pool_addr);
+            let amount_in = max_single_swap(res_x);
+            let amount_out = dex::get_amount_out(amount_in, res_x, res_y);
+            dex::swap(&trader, tokenA, tokenB, amount_in, amount_out, timestamp::now_seconds() + 10);
 
             trade_count += 1;
         };
@@ -572,7 +593,7 @@ module dynexus_swap::enhanced_test_dynaswap {
         assert!(remaining_lp_tokens > 0, 1003);
 
         // Verify pool still has liquidity
-        let (final_reserves_a, final_reserves_b) = dex::get_pool_reserves(tokenA, tokenB);
+        let (final_reserves_a, final_reserves_b) = dex::get_pool_reserves(pool_addr);
         assert!(final_reserves_a > 0, 1004);
         assert!(final_reserves_b > 0, 1005);
     }

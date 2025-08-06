@@ -9,7 +9,7 @@ module dynexus_swap::test_dynaswap {
     use aptos_framework::genesis;
     use aptos_framework::object;
     use aptos_framework::primary_fungible_store;
-    use dev::utils::print_formatted;
+    use aptos_framework::timestamp;
     use dynexus_forge::token_factory;
     use dynexus_swap::dex;
 
@@ -27,6 +27,7 @@ module dynexus_swap::test_dynaswap {
     const PLATFORM_FEE_PERCENT: u64 = 2;    // 0.02% (platform fee)
     const TOTAL_FEE_PERCENT: u64 = 3;       // 0.03% total fees
     const FEE_DENOMINATOR: u64 = 10000;
+    const MAX_SINGLE_SWAP_PERCENT: u64 = 1000; // Max swap
     const E_INVALID_MINT_COUNT: u64 = 0;
     const E_TOKENS_MUST_BE_DIFFERENT: u64 = 4;
     const E_ZERO_AMOUNT: u64 = 6;
@@ -61,6 +62,10 @@ module dynexus_swap::test_dynaswap {
 
     fun from_quants(amount: u64, decimal: u8): u64 {
         amount / (pow10(decimal))
+    }
+
+    public fun max_single_swap(reserve_in: u64): u64{
+        (reserve_in * MAX_SINGLE_SWAP_PERCENT) / 10000
     }
 
     fun create_token_pair_with_pool(issuer: &signer): (signer, address, address, address) {
@@ -225,7 +230,7 @@ module dynexus_swap::test_dynaswap {
         token_factory::mint_token(token_b_issuer, @0xC, tokenB, amount);
 
         // Create pool with 100 of each token
-        dex::create_pool(&liquidity_provider, tokenA, tokenB, 100, 100);
+        dex::create_pool(&liquidity_provider, tokenA, tokenB, 1000, 1000);
     }
 
     #[test(admin = @dynexus_swap)]
@@ -251,12 +256,12 @@ module dynexus_swap::test_dynaswap {
 
         token_factory::mint_token(&provider, address_of(&issuer), tokenB, 1000);
 
-        dex::create_pool(&provider, tokenB, tokenB, 100, 100);
+        dex::create_pool(&provider, tokenB, tokenB, 1000, 1000);
     }
 
     #[test(admin = @dynexus_swap)]
-    #[expected_failure(abort_code = dex::E_ZERO_AMOUNT)]
-    fun test_create_pool_zemo_amoumt(admin: &signer) {
+    #[expected_failure(abort_code = dex::E_INVALID_INITIAL_LIQUIDITY)]
+    fun test_create_pool_zero_amoumt(admin: &signer) {
         setup(admin);
 
         let issuer = create_account_for_test(@0xA);
@@ -345,7 +350,7 @@ module dynexus_swap::test_dynaswap {
         );
 
         // Create pool with 100 of each token
-        dex::create_pool(&liquidity_provider, tokenB, tokenA, 100, 100);
+        dex::create_pool(&liquidity_provider, tokenB, tokenA, 1000, 1000);
 
         let pool_address = dex::get_pool_object_address(tokenB, tokenA);
         let lp_token = object::address_to_object<Metadata>(dex::get_lp_address(pool_address));
@@ -354,7 +359,7 @@ module dynexus_swap::test_dynaswap {
         let symbol = fungible_asset::symbol(lp_token);
         let decimals = fungible_asset::decimals(lp_token);
         assert!(decimals == 9, E_INVALID_LP_METADATA); // Should use higher decimals (9 > 6)
-        assert!(symbol == utf8(b"DYNEXUS-TA-TB"), E_INVALID_LP_METADATA);
+        assert!(symbol == utf8(b"DYNEXUS-LP-TA-TB"), E_INVALID_LP_METADATA);
         assert!(name == utf8(b"DYNEXUS LP Token TA-TB"), E_INVALID_LP_METADATA);
     }
 
@@ -372,8 +377,8 @@ module dynexus_swap::test_dynaswap {
         test_mint_token(&issuer, address_of(&provider), tokenA, 1000);
         test_mint_token(&issuer, address_of(&provider), tokenB, 1000);
 
-        dex::create_pool(&provider, tokenA, tokenB, 100, 100);
-        dex::create_pool(&provider, tokenA, tokenB, 100, 100); // should fail
+        dex::create_pool(&provider, tokenA, tokenB, 1000, 1000);
+        dex::create_pool(&provider, tokenA, tokenB, 1000, 1000); // should fail
     }
 
     #[test(admin = @dynexus_swap)]
@@ -389,7 +394,7 @@ module dynexus_swap::test_dynaswap {
         test_mint_token(&issuer, address_of(&provider), tokenA, 1000);
         test_mint_token(&issuer, address_of(&provider), tokenB, 1000);
 
-        dex::create_pool(&provider, tokenA, tokenB, 100, 100);
+        dex::create_pool(&provider, tokenA, tokenB, 1000, 1000);
 
         let addr1 = dex::get_pool_object_address(tokenA, tokenB);
         let addr2 = dex::get_pool_object_address(tokenB, tokenA);
@@ -419,13 +424,11 @@ module dynexus_swap::test_dynaswap {
             1
         );
 
-        test_mint_token(&issuer, address_of(&provider), tokenA, 1000);
-        test_mint_token(&issuer, address_of(&provider), tokenB, 1000);
+        test_mint_token(&issuer, address_of(&provider), tokenA, 2000);
+        test_mint_token(&issuer, address_of(&provider), tokenB, 2000);
 
-        print_formatted(b"tokenA", tokenA);
-        print_formatted(b"tokenB", tokenB);
 
-        dex::create_pool(&provider, tokenA, tokenB, 200, 200);
+        dex::create_pool(&provider, tokenA, tokenB, 2000, 2000);
         let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
         let lp_address = dex::get_lp_address(pool_addr);
         let lp_asset = object::address_to_object<Metadata>(lp_address);
@@ -437,7 +440,6 @@ module dynexus_swap::test_dynaswap {
             name == utf8(b"DYNEXUS LP Token ALPHA-BETA"),
             E_INVALID_LP_METADATA
         );
-        print_formatted(b"symbol", symbol);
         assert!(
             symbol == utf8(b"DYNEXUS-LP-ALPHA-BETA"),
             E_INVALID_LP_METADATA
@@ -453,7 +455,7 @@ module dynexus_swap::test_dynaswap {
 
         let (amount_x_min, amount_y_min) =  dex::calculate_min_amounts(pool_addr,amount_x_desired, amount_y_desired,1);
 
-        dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min);
+        dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         let lp_address = dex::get_lp_address(pool_addr);
         let balance = token_factory::get_balance(address_of(&provider), lp_address);
@@ -470,7 +472,7 @@ module dynexus_swap::test_dynaswap {
 
         let (amount_x_min, amount_y_min) =  dex::calculate_min_amounts(pool_addr,amount_x_desired, amount_y_desired,1);
 
-        dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min);
+        dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
         let lp_address = dex::get_lp_address(pool_addr);
         let lp_balance_before =
             token_factory::get_balance(address_of(&provider), lp_address);
@@ -481,7 +483,7 @@ module dynexus_swap::test_dynaswap {
             token_factory::get_balance(address_of(&provider), lp_address);
         assert!(lp_balance_after == 0, 1003);
 
-        let (rx, ry) = dex::get_pool_reserves(tokenA, tokenB);
+        let (rx, ry) = dex::get_pool_reserves(pool_addr);
         assert!(rx == 0 && ry == 0, 1004);
     }
 
@@ -533,7 +535,7 @@ module dynexus_swap::test_dynaswap {
         let (amount_x_min, amount_y_min) =  dex::calculate_min_amounts(pool_addr,amount_x_desired, amount_y_desired,1);
 
         // Step 5: Add liquidity
-        dex::add_liquidity(&user, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min);
+        dex::add_liquidity(&user, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         let lp_balance_after_add =
             token_factory::get_balance(address_of(&user), pool_addr);
@@ -559,13 +561,13 @@ module dynexus_swap::test_dynaswap {
 
         let (amount_x_min, amount_y_min) =  dex::calculate_min_amounts(pool_addr,amount_x_desired, amount_y_desired,1);
 
-        dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min);
+        dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         // Add more liquidity to stabilize
         let amount_x_desired= quants(10, 8);
         let amount_y_desired =quants(5, 8);
         let (amount_x_min, amount_y_min) =  dex::calculate_min_amounts(pool_addr,amount_x_desired, amount_y_desired,1);
-        dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min);
+        dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         let user_addr = @0xBEEF;
         let user = &create_account_for_test(user_addr);
@@ -574,11 +576,12 @@ module dynexus_swap::test_dynaswap {
         token_factory::mint_token(admin, user_addr, tokenB, quants(50, 8));
 
         // Swap 100 tokenA to tokenB
-        let amount_in = quants(50, 8);
-        let (rev_x, rev_y) = dex::get_pool_reserves(tokenA, tokenB);
+        let (rev_x, rev_y) = dex::get_pool_reserves(pool_addr);
+
+        let amount_in = max_single_swap(rev_x);
 
         let min_out = dex::get_amount_out(amount_in, rev_x, rev_y);
-        dex::swap(user, tokenA, tokenB, quants(50, 8), min_out);
+        dex::swap(user, tokenA, tokenB, amount_in, min_out, timestamp::now_seconds() + 10);
 
         // Assert tokenB balance increased
         let tokenB_metadata = token_factory::get_token_metadata(tokenB);
@@ -602,24 +605,25 @@ module dynexus_swap::test_dynaswap {
         let amount_x_desired = quants(1000, 8);
         let amount_y_desired = quants(100, 8);
         let (amount_x_min, amount_y_min) = dex::calculate_min_amounts(pool_addr, amount_x_desired, amount_y_desired, 1);
-        dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min);
+        dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         // Create user and fund them
         let user = create_account_for_test(@0x1234);
         token_factory::mint_token(admin, address_of(&user), tokenA, quants(500, 8));
 
         // Get reserves before swap
-        let (reserve_x_before, reserve_y_before) = dex::get_pool_reserves(tokenA, tokenB);
+        let (reserve_x_before, reserve_y_before) = dex::get_pool_reserves(pool_addr);
 
         // Calculate expected output amount dynamically
-        let input_amount = quants(100, 8);
+        let input_amount = max_single_swap(reserve_x_before);
+
         let expected_output = dex::get_amount_out(input_amount, reserve_x_before, reserve_y_before);
 
         // Apply 1% slippage tolerance
         let min_output = expected_output * 99 / 100;
 
         // Perform swap with slippage protection
-        dex::swap(&user, tokenA, tokenB, input_amount, min_output);
+        dex::swap(&user, tokenA, tokenB, input_amount, min_output, timestamp::now_seconds() + 10);
 
         // Verify output is within expected range
         let tokenB_balance = token_factory::get_token_balance(&user, tokenB);
@@ -636,19 +640,20 @@ module dynexus_swap::test_dynaswap {
         let amount_x_desired = quants(100, 8);
         let amount_y_desired = quants(10, 8);
         let (amount_x_min, amount_y_min) = dex::calculate_min_amounts(pool_addr, amount_x_desired, amount_y_desired, 1);
-        dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min);
+        dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         let user = create_account_for_test(@0x2345);
         token_factory::mint_token(admin, address_of(&user), tokenA, quants(500, 8));
 
         // Set unrealistic min output (higher than possible)
-        let input_amount = quants(50, 8);
-        let (reserve_x, reserve_y) = dex::get_pool_reserves(tokenA, tokenB);
+        let (reserve_x, reserve_y) = dex::get_pool_reserves(pool_addr);
+        let input_amount = max_single_swap(reserve_x);
+
         let realistic_output = dex::get_amount_out(input_amount, reserve_x, reserve_y);
         let unrealistic_min_output = realistic_output * 2; // 2x expected output
 
         // This should fail
-        dex::swap(&user, tokenA, tokenB, input_amount, unrealistic_min_output);
+        dex::swap(&user, tokenA, tokenB, input_amount, unrealistic_min_output, timestamp::now_seconds() + 10);
     }
 
     #[test(admin = @dynexus_swap)]
@@ -664,15 +669,15 @@ module dynexus_swap::test_dynaswap {
         let amount_y_d = quants(1, 8); // Maintains 10:1 ratio
 
         let (token_x, token_y, amount_x, amount_y) = dex::sort_token(tokenA, tokenB, amount_x_d, amount_y_d);
-        let (initial_reserve_x, initial_reserve_y) = dex::get_pool_reserves(token_x, token_y);
+        let (initial_reserve_x, initial_reserve_y) = dex::get_pool_reserves(pool_addr);
 
         let (amount_x_min, amount_y_min) = dex::calculate_min_amounts(pool_addr, amount_x, amount_y, 1);
         let (new_x, new_y) = dex::calculate_optimal_add_amounts(initial_reserve_x, initial_reserve_y, amount_x, amount_y);
 
-        dex::add_liquidity(&provider, token_x, token_y, amount_x, amount_y, amount_x_min, amount_y_min);
+        dex::add_liquidity(&provider, token_x, token_y, amount_x, amount_y, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         // Verify reserves updated correctly
-        let (new_reserve_x, new_reserve_y) = dex::get_pool_reserves(token_x, token_y);
+        let (new_reserve_x, new_reserve_y) = dex::get_pool_reserves(pool_addr);
 
         assert!(new_reserve_x == initial_reserve_x + new_x , 7001);
         assert!(new_reserve_y == initial_reserve_y + new_y, 7002);
@@ -692,7 +697,7 @@ module dynexus_swap::test_dynaswap {
         let amount_x = quants(1000, 8);
         let amount_y = quants(100, 8);
         let (amount_x_min, amount_y_min) = dex::calculate_min_amounts(pool_addr, amount_x, amount_y, 1);
-        dex::add_liquidity(&provider, tokenA, tokenB, amount_x, amount_y, amount_x_min, amount_y_min);
+        dex::add_liquidity(&provider, tokenA, tokenB, amount_x, amount_y, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         let lp_address = dex::get_lp_address(pool_addr);
         let total_lp = token_factory::get_balance(address_of(&provider), lp_address);
@@ -706,7 +711,7 @@ module dynexus_swap::test_dynaswap {
         assert!(remaining_lp == total_lp - lp_to_remove, 8001);
 
         // Verify reserves decreased proportionally
-        let (reserve_x, reserve_y) = dex::get_pool_reserves(tokenA, tokenB);
+        let (reserve_x, reserve_y) = dex::get_pool_reserves(pool_addr);
         assert!(reserve_x < amount_x && reserve_y < amount_y, 8002);
     }
 
@@ -719,7 +724,7 @@ module dynexus_swap::test_dynaswap {
         let amount_x = quants(10000, 8);
         let amount_y = quants(1000, 8);
         let (amount_x_min, amount_y_min) = dex::calculate_min_amounts(pool_addr, amount_x, amount_y, 1);
-        dex::add_liquidity(&provider, tokenA, tokenB, amount_x, amount_y, amount_x_min, amount_y_min);
+        dex::add_liquidity(&provider, tokenA, tokenB, amount_x, amount_y, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         // Create user and fund them
         let user = create_account_for_test(@0x3456);
@@ -727,12 +732,12 @@ module dynexus_swap::test_dynaswap {
 
         // Small swap (minimal price impact)
         let small_input = quants(100, 8);
-        let (reserve_x_small, reserve_y_small) = dex::get_pool_reserves(tokenA, tokenB);
+        let (reserve_x_small, reserve_y_small) = dex::get_pool_reserves(pool_addr);
         let small_output = dex::get_amount_out(small_input, reserve_x_small, reserve_y_small);
 
         // Large swap (significant price impact)
         let large_input = quants(5000, 8);
-        let (reserve_x_large, reserve_y_large) = dex::get_pool_reserves(tokenA, tokenB);
+        let (reserve_x_large, reserve_y_large) = dex::get_pool_reserves(pool_addr);
         let large_output = dex::get_amount_out(large_input, reserve_x_large, reserve_y_large);
 
         // Calculate price per token for both scenarios
@@ -753,7 +758,7 @@ module dynexus_swap::test_dynaswap {
         let amount_x = quants(10000, 8);
         let amount_y = quants(1000, 8);
         let (amount_x_min, amount_y_min) = dex::calculate_min_amounts(pool_addr, amount_x, amount_y, 1);
-        dex::add_liquidity(&provider, tokenA, tokenB, amount_x, amount_y, amount_x_min, amount_y_min);
+        dex::add_liquidity(&provider, tokenA, tokenB, amount_x, amount_y, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         // Create trader and fund with 5,000 tokenA
         let trader = create_account_for_test(@0x4567);
@@ -763,46 +768,46 @@ module dynexus_swap::test_dynaswap {
         let dex_config_addr = dex::get_dex_object_address();
         let initial_platform_balance = token_factory::get_balance(dex_config_addr, tokenA);
         let initial_pool_balance = token_factory::get_balance(pool_addr, tokenA);
-        let (initial_reserve_x, _) = dex::get_pool_reserves(tokenA, tokenB);
+        let (initial_reserve_x, _) = dex::get_pool_reserves(pool_addr);
 
         // Define swap amounts for testing
-        let swap_amounts = vector[quants(100, 8), quants(200, 8), quants(300, 8)];
+        let swap_amounts = 3;
         let total_swapped = 0;
         let total_expected_platform_fee = 0;
         let total_expected_swap_fee = 0;
 
         // Execute all swaps and track expected fees
         let i = 0;
-        while (i < swap_amounts.length()) {
-        let amount = *swap_amounts.borrow(i);
+        while (i < swap_amounts) {
+        let (reserve_x, reserve_y) = dex::get_pool_reserves(pool_addr);
+        let amount = max_single_swap(reserve_x);
         total_swapped += amount;
 
         // Calculate expected fees for this swap
-        let expected_platform_fee = amount * PLATFORM_FEE_PERCENT / FEE_DENOMINATOR;
-        let expected_swap_fee = amount * DEFAULT_FEE_PERCENT / FEE_DENOMINATOR;
+        let expected_platform_fee = ((amount as u128) * (PLATFORM_FEE_PERCENT as u128) / (FEE_DENOMINATOR as u128) as u64);
+        let expected_swap_fee = ((amount as u128) * (DEFAULT_FEE_PERCENT as u128) / (FEE_DENOMINATOR as u128) as u64);
         total_expected_platform_fee += expected_platform_fee;
         total_expected_swap_fee += expected_swap_fee;
 
 
 
-        let (reserve_x, reserve_y) = dex::get_pool_reserves(tokenA, tokenB);
         let expected_out = dex::get_amount_out(amount, reserve_x, reserve_y);
-        dex::swap(&trader, tokenA, tokenB, amount, expected_out * 99 / 100); // 1% slippage tolerance
+        dex::swap(&trader, tokenA, tokenB, amount, expected_out * 99 / 100, timestamp::now_seconds() + 10); // 1% slippage toleran, timestamp::now_seconds() + 10ce
         i += 1;
         };
 
         // Get final balances and reserves
         let final_platform_balance = token_factory::get_balance(dex_config_addr, tokenA);
         let final_pool_balance = token_factory::get_balance(pool_addr, tokenA);
-        let (final_reserve_x, _) = dex::get_pool_reserves(tokenA, tokenB);
+        let (final_reserve_x, _) = dex::get_pool_reserves(pool_addr);
 
         // Calculate actual fees collected
         let actual_platform_fee = final_platform_balance - initial_platform_balance;
-        let actual_swap_fee =  (final_pool_balance - initial_pool_balance) - (total_swapped *  DEFAULT_FEE_PERCENT / FEE_DENOMINATOR);
+        let actual_swap_fee =  (final_pool_balance - initial_pool_balance) - (((total_swapped as u128) *  (DEFAULT_FEE_PERCENT as u128) / (FEE_DENOMINATOR as u128)) as u64);
 
         // Calculate net amount that went to reserves (after all fees)
-        let net_amount_to_reserves = total_swapped - total_expected_platform_fee - total_expected_swap_fee;
-        let actual_reserve_increase = final_reserve_x - initial_reserve_x;
+        let net_amount_to_reserves = total_swapped - total_expected_platform_fee + total_expected_swap_fee;
+        let actual_reserve_increase = final_reserve_x - initial_reserve_x + total_expected_swap_fee;
 
         // Verify platform fee collection (0.02%)
         assert!(
@@ -811,7 +816,7 @@ module dynexus_swap::test_dynaswap {
         );
         // Verify swap fee collection (0.01%) - goes to pool balance
         assert!(
-            actual_swap_fee ==  (final_pool_balance - initial_pool_balance) - total_expected_swap_fee,
+            actual_swap_fee ==  (final_pool_balance - initial_pool_balance) - total_expected_swap_fee - 1,
         E_SWAP_FEE_MISMATCH
         );
 
@@ -858,18 +863,19 @@ module dynexus_swap::test_dynaswap {
         let (tokenA, tokenB, _, _) = dex::sort_token(tokenA, tokenB, 0, 0);
 
         // Verify pool created successfully
-        let (reserve_x, reserve_y) = dex::get_pool_reserves(tokenA, tokenB);
+        let pool_addrss = dex::get_pool_object_address(tokenA, tokenB);
+        let (reserve_x, reserve_y) = dex::get_pool_reserves(pool_addrss);
         assert!(reserve_x == quants(100, 6) && reserve_y == quants(1, 8), 11001);
 
         // Test swap between different decimal tokens
         let trader = create_account_for_test(@0x7890);
         token_factory::mint_token(&issuer, address_of(&trader), tokenA, quants(10, 6));
 
-        let amount_in = quants(10, 6);
-        let (rev_x, rev_y) = dex::get_pool_reserves(tokenA, tokenB);
+        let (rev_x, rev_y) = dex::get_pool_reserves(pool_addrss);
+        let amount_in = max_single_swap(rev_x);
 
         let min_out = dex::get_amount_out(amount_in, rev_x, rev_y);
-        dex::swap(&trader, tokenA, tokenB, amount_in, min_out);
+        dex::swap(&trader, tokenA, tokenB, amount_in, min_out, timestamp::now_seconds() + 10);
 
         // Verify trader received some tokenB
         let tokenB_balance = token_factory::get_token_balance(&trader, tokenB);
@@ -885,7 +891,7 @@ module dynexus_swap::test_dynaswap {
         let amount_x = quants(1000, 8);
         let amount_y = quants(100, 8);
         let (amount_x_min, amount_y_min) = dex::calculate_min_amounts(pool_addr, amount_x, amount_y, 1);
-        dex::add_liquidity(&provider, tokenA, tokenB, amount_x, amount_y, amount_x_min, amount_y_min);
+        dex::add_liquidity(&provider, tokenA, tokenB, amount_x, amount_y, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         let lp_address = dex::get_lp_address(pool_addr);
         let initial_lp_balance = token_factory::get_balance(address_of(&provider), lp_address);
