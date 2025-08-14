@@ -13,11 +13,9 @@ module dynexus_swap::dex {
     use aptos_framework::fungible_asset;
     use aptos_framework::fungible_asset::{Metadata, MintRef, BurnRef};
     use aptos_framework::object;
-    use aptos_framework::object::{ExtendRef};
+    use aptos_framework::object::{ExtendRef, address_to_object};
     use aptos_framework::primary_fungible_store;
     use aptos_framework::timestamp;
-
-    use dynexus_forge::token_factory;
 
     //
     // Constants
@@ -268,8 +266,6 @@ module dynexus_swap::dex {
 
         // Tokens must be different
         assert!(token_x != token_y, E_TOKENS_MUST_BE_DIFFERENT);
-        token_factory::assert_registered(token_x);
-        token_factory::assert_registered(token_y);
 
         validate_pool_creation_parameters(amount_x, amount_y);
 
@@ -575,21 +571,22 @@ module dynexus_swap::dex {
         let pool_signer = &object::generate_signer_for_extending(&pool.extend_ref);
 
         // User tranfer amount_in (including swap and plateform fees)
-        token_factory::transfer_token(trader, pool_addr, token_in, amount_in);
+        let token_in_metadata = address_to_object<Metadata>(token_in);
+        primary_fungible_store::transfer(trader, token_in_metadata, pool_addr, amount_in);
 
         // Pool transer plateform fee to the recipient
-        token_factory::transfer_token(
+        primary_fungible_store::transfer(
             pool_signer,
+            token_in_metadata,
             dex_config.platform_fee_recipient,
-            token_in,
             platform_fee
         );
 
         // Pool transer amount to the trader
-        token_factory::transfer_token(
+        primary_fungible_store::transfer(
             pool_signer,
+            address_to_object<Metadata>(token_out),
             trader_addr,
-            token_out,
             amount_out
         );
 
@@ -827,8 +824,8 @@ module dynexus_swap::dex {
 
     /// initialize LP token metadata
     fun initialize_lp_token(token_x: address, token_y: address): (String, String, u8) {
-        let token_x_metadata = token_factory::get_token_metadata(token_x);
-        let token_y_metadata = token_factory::get_token_metadata(token_y);
+        let token_x_metadata = address_to_object<Metadata>(token_x);
+        let token_y_metadata = address_to_object<Metadata>(token_y);
 
         let token_x_symbol = fungible_asset::symbol(token_x_metadata);
         let token_y_symbol = fungible_asset::symbol(token_y_metadata);

@@ -8,9 +8,11 @@ module dynexus_swap::test_dynaswap {
     use aptos_framework::fungible_asset::Metadata;
     use aptos_framework::genesis;
     use aptos_framework::object;
+    use aptos_framework::object::address_to_object;
     use aptos_framework::primary_fungible_store;
     use aptos_framework::timestamp;
     use dynexus_forge::token_factory;
+    use dynexus_forge::token_factory_test;
     use dynexus_swap::dex;
 
     //
@@ -178,12 +180,12 @@ module dynexus_swap::test_dynaswap {
         token_factory::mint_token(owner, user_addr, tokenB, amount);
 
         assert!(
-            token_factory::get_token_balance(user, tokenA) == amount,
+            token_factory_test::balance_of(address_of(user), tokenA) == amount,
             E_INVALID_MINT_COUNT
         );
 
         assert!(
-            token_factory::get_token_balance(user, tokenB) == amount,
+            token_factory_test::balance_of(address_of(user), tokenB) == amount,
             E_INVALID_MINT_COUNT
         );
     }
@@ -458,7 +460,7 @@ module dynexus_swap::test_dynaswap {
         dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         let lp_address = dex::get_lp_address(pool_addr);
-        let balance = token_factory::get_balance(address_of(&provider), lp_address);
+        let balance = token_factory_test::balance_of(address_of(&provider), lp_address);
         assert!(balance > 0, 1001);
     }
 
@@ -475,12 +477,12 @@ module dynexus_swap::test_dynaswap {
         dex::add_liquidity(&provider, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
         let lp_address = dex::get_lp_address(pool_addr);
         let lp_balance_before =
-            token_factory::get_balance(address_of(&provider), lp_address);
+            token_factory_test::balance_of(address_of(&provider), lp_address);
         assert!(lp_balance_before > 0, 1002);
         dex::remove_liquidity(&provider, tokenA, tokenB, lp_balance_before);
 
         let lp_balance_after =
-            token_factory::get_balance(address_of(&provider), lp_address);
+            token_factory_test::balance_of(address_of(&provider), lp_address);
         assert!(lp_balance_after == 0, 1003);
 
         let (rx, ry) = dex::get_pool_reserves(pool_addr);
@@ -538,13 +540,13 @@ module dynexus_swap::test_dynaswap {
         dex::add_liquidity(&user, tokenA, tokenB, amount_x_desired, amount_y_desired, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         let lp_balance_after_add =
-            token_factory::get_balance(address_of(&user), pool_addr);
+            token_factory_test::balance_of(address_of(&user), pool_addr);
         assert!(lp_balance_after_add > 0, 2002);
 
         // Step 6: Remove all liquidity
         dex::remove_liquidity(&user, tokenA, tokenB, lp_balance_after_add);
 
-        let lp_balance_final = token_factory::get_balance(
+        let lp_balance_final = token_factory_test::balance_of(
             address_of(&user), pool_addr
         );
         assert!(lp_balance_final == 0, 2004);
@@ -584,13 +586,13 @@ module dynexus_swap::test_dynaswap {
         dex::swap(user, tokenA, tokenB, amount_in, min_out, timestamp::now_seconds() + 10);
 
         // Assert tokenB balance increased
-        let tokenB_metadata = token_factory::get_token_metadata(tokenB);
+        let tokenB_metadata = address_to_object<Metadata>(tokenB);
         let tokenB_balance = primary_fungible_store::balance(user_addr, tokenB_metadata);
         assert!(tokenB_balance > 0, 5001);
 
         // Assert platform_fee_recipient received fee
         let config = dex::get_dex_object_address();
-        let fee_recipient_balance = token_factory::get_balance(config, tokenA);
+        let fee_recipient_balance = token_factory_test::balance_of(config, tokenA);
         assert!(fee_recipient_balance > 0, 5002);
     }
 
@@ -626,7 +628,7 @@ module dynexus_swap::test_dynaswap {
         dex::swap(&user, tokenA, tokenB, input_amount, min_output, timestamp::now_seconds() + 10);
 
         // Verify output is within expected range
-        let tokenB_balance = token_factory::get_token_balance(&user, tokenB);
+        let tokenB_balance = token_factory_test::balance_of(address_of(&user), tokenB);
         assert!(tokenB_balance >= min_output && tokenB_balance <= expected_output, 6001);
     }
 
@@ -684,7 +686,7 @@ module dynexus_swap::test_dynaswap {
 
         // Verify LP tokens minted proportionally
         let lp_address = dex::get_lp_address(pool_addr);
-        let lp_balance = token_factory::get_balance(address_of(&provider), lp_address);
+        let lp_balance = token_factory_test::balance_of(address_of(&provider), lp_address);
         assert!(lp_balance > 0, 7003);
     }
 
@@ -700,14 +702,14 @@ module dynexus_swap::test_dynaswap {
         dex::add_liquidity(&provider, tokenA, tokenB, amount_x, amount_y, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         let lp_address = dex::get_lp_address(pool_addr);
-        let total_lp = token_factory::get_balance(address_of(&provider), lp_address);
+        let total_lp = token_factory_test::balance_of(address_of(&provider), lp_address);
 
         // Remove 50% of liquidity
         let lp_to_remove = total_lp / 2;
         dex::remove_liquidity(&provider, tokenA, tokenB, lp_to_remove);
 
         // Verify balances
-        let remaining_lp = token_factory::get_balance(address_of(&provider), lp_address);
+        let remaining_lp = token_factory_test::balance_of(address_of(&provider), lp_address);
         assert!(remaining_lp == total_lp - lp_to_remove, 8001);
 
         // Verify reserves decreased proportionally
@@ -766,8 +768,8 @@ module dynexus_swap::test_dynaswap {
 
         // Get initial balances and reserves
         let dex_config_addr = dex::get_dex_object_address();
-        let initial_platform_balance = token_factory::get_balance(dex_config_addr, tokenA);
-        let initial_pool_balance = token_factory::get_balance(pool_addr, tokenA);
+        let initial_platform_balance = token_factory_test::balance_of(dex_config_addr, tokenA);
+        let initial_pool_balance = token_factory_test::balance_of(pool_addr, tokenA);
         let (initial_reserve_x, _) = dex::get_pool_reserves(pool_addr);
 
         // Define swap amounts for testing
@@ -797,8 +799,8 @@ module dynexus_swap::test_dynaswap {
         };
 
         // Get final balances and reserves
-        let final_platform_balance = token_factory::get_balance(dex_config_addr, tokenA);
-        let final_pool_balance = token_factory::get_balance(pool_addr, tokenA);
+        let final_platform_balance = token_factory_test::balance_of(dex_config_addr, tokenA);
+        let final_pool_balance = token_factory_test::balance_of(pool_addr, tokenA);
         let (final_reserve_x, _) = dex::get_pool_reserves(pool_addr);
 
         // Calculate actual fees collected
@@ -878,7 +880,7 @@ module dynexus_swap::test_dynaswap {
         dex::swap(&trader, tokenA, tokenB, amount_in, min_out, timestamp::now_seconds() + 10);
 
         // Verify trader received some tokenB
-        let tokenB_balance = token_factory::get_token_balance(&trader, tokenB);
+        let tokenB_balance = token_factory_test::balance_of(address_of(&trader), tokenB);
         assert!(tokenB_balance > 0, 11002);
     }
 
@@ -894,18 +896,18 @@ module dynexus_swap::test_dynaswap {
         dex::add_liquidity(&provider, tokenA, tokenB, amount_x, amount_y, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
         let lp_address = dex::get_lp_address(pool_addr);
-        let initial_lp_balance = token_factory::get_balance(address_of(&provider), lp_address);
+        let initial_lp_balance = token_factory_test::balance_of(address_of(&provider), lp_address);
 
         // Create recipient
         let recipient = create_account_for_test(@0x8901);
 
         // Transfer half of LP tokens
         let transfer_amount = initial_lp_balance / 2;
-        token_factory::transfer_token(&provider, address_of(&recipient), lp_address, transfer_amount);
+        primary_fungible_store::transfer(&provider, address_to_object<Metadata>(lp_address), address_of(&recipient), transfer_amount);
 
         // Verify balances
-        let provider_balance = token_factory::get_balance(address_of(&provider), lp_address);
-        let recipient_balance = token_factory::get_balance(address_of(&recipient), lp_address);
+        let provider_balance = token_factory_test::balance_of(address_of(&provider), lp_address);
+        let recipient_balance = token_factory_test::balance_of(address_of(&recipient), lp_address);
 
         assert!(provider_balance == initial_lp_balance - transfer_amount, 12001);
         assert!(recipient_balance == transfer_amount, 12002);
@@ -914,8 +916,8 @@ module dynexus_swap::test_dynaswap {
         dex::remove_liquidity(&recipient, tokenA, tokenB, recipient_balance);
 
         // Verify recipient received underlying tokens
-        let tokenA_balance = token_factory::get_token_balance(&recipient, tokenA);
-        let tokenB_balance = token_factory::get_token_balance(&recipient, tokenB);
+        let tokenA_balance = token_factory_test::balance_of(address_of(&recipient), tokenA);
+        let tokenB_balance = token_factory_test::balance_of(address_of(&recipient), tokenB);
         assert!(tokenA_balance > 0 && tokenB_balance > 0, 12003);
     }
 }

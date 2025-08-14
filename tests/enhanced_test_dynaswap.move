@@ -7,6 +7,7 @@ module dynexus_swap::enhanced_test_dynaswap {
     use aptos_framework::genesis;
     use aptos_framework::timestamp;
     use dynexus_forge::token_factory;
+    use dynexus_forge::token_factory_test;
     use dynexus_swap::test_dynaswap::max_single_swap;
     use dynexus_swap::dex;
 
@@ -208,14 +209,14 @@ module dynexus_swap::enhanced_test_dynaswap {
 
         // Get LP token balance
         let lp_address = dex::get_lp_address(pool_addr);
-        let lp_balance = token_factory::get_balance(address_of(&provider), lp_address);
+        let lp_balance = token_factory_test::balance_of(address_of(&provider), lp_address);
 
         // Try to remove almost all liquidity (should leave minimum)
         let remove_amount = lp_balance - MIN_LIQUIDITY;
         dex::remove_liquidity(&provider, tokenA, tokenB, remove_amount);
 
         // Check that minimum liquidity remains
-        let remaining_lp = token_factory::get_balance(address_of(&provider), lp_address);
+        let remaining_lp = token_factory_test::balance_of(address_of(&provider), lp_address);
         assert!(remaining_lp >= MIN_LIQUIDITY, E_INVALID_LIQUIDITY);
     }
 
@@ -244,7 +245,7 @@ module dynexus_swap::enhanced_test_dynaswap {
         dex::swap(&trader, tokenA, tokenB, amount_in, amount_out, timestamp::now_seconds() + 10);
 
         // Verify trader received some tokenB
-        let tokenB_balance = token_factory::get_token_balance(&trader, tokenB);
+        let tokenB_balance = token_factory_test::balance_of(address_of(&trader), tokenB);
         assert!(tokenB_balance > 0, E_INVALID_BALANCE);
     }
 
@@ -268,7 +269,7 @@ module dynexus_swap::enhanced_test_dynaswap {
         let trader = create_account_for_test(@0x3);
         token_factory::mint_token(&issuer, address_of(&trader), tokenA, quants(100, 2));
 
-        let initial_balance = token_factory::get_token_balance(&trader, tokenB);
+        let initial_balance = token_factory_test::balance_of(address_of(&trader), tokenB);
 
         // Perform multiple small swaps
         let i = 0;
@@ -283,7 +284,7 @@ module dynexus_swap::enhanced_test_dynaswap {
         };
 
         // Verify precision wasn't lost
-        let final_balance = token_factory::get_token_balance(&trader, tokenB);
+        let final_balance = token_factory_test::balance_of(address_of(&trader), tokenB);
         assert!(final_balance > initial_balance, E_INVALID_BALANCE);
     }
 
@@ -439,7 +440,7 @@ module dynexus_swap::enhanced_test_dynaswap {
         };
 
         // Verify user received tokens
-        let final_balance = token_factory::get_token_balance(&user, tokenB);
+        let final_balance = token_factory_test::balance_of(address_of(&user), tokenB);
         assert!(final_balance > 0, E_INVALID_BALANCE);
     }
 
@@ -458,8 +459,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         token_factory::mint_token(&issuer, address_of(&provider), tokenB, quants(100000, 8));
 
         // Initial balances
-        let initial_a = token_factory::get_token_balance(&provider, tokenA);
-        let initial_b = token_factory::get_token_balance(&provider, tokenB);
+        let initial_a = token_factory_test::balance_of(address_of(&provider), tokenA);
+        let initial_b = token_factory_test::balance_of(address_of(&provider), tokenB);
 
         // Create pool with 1:1 ratio
         dex::create_pool(&provider, tokenA, tokenB, quants(10, 8), quants(10, 8));
@@ -477,13 +478,13 @@ module dynexus_swap::enhanced_test_dynaswap {
 
         // Provider removes all liquidity
         let lp_address = dex::get_lp_address(pool_addr);
-        let lp_balance = token_factory::get_balance(address_of(&provider), lp_address);
+        let lp_balance = token_factory_test::balance_of(address_of(&provider), lp_address);
 
         dex::remove_liquidity(&provider, tokenA, tokenB, lp_balance);
 
         // Check final balances
-        let final_a = token_factory::get_token_balance(&provider, tokenA);
-        let final_b = token_factory::get_token_balance(&provider, tokenB);
+        let final_a = token_factory_test::balance_of(address_of(&provider), tokenA);
+        let final_b = token_factory_test::balance_of(address_of(&provider), tokenB);
 
         // Provider should have different token ratios now
         let initial_ratio = ((initial_a as u256) * (pow10(8)as u256) / (initial_b as u256) as u64);
@@ -505,7 +506,7 @@ module dynexus_swap::enhanced_test_dynaswap {
         dex::create_pool(&provider, tokenA, tokenB, quants(10, 8), quants(10, 8));
 
         let dex_config = dex::get_dex_object_address();
-        let initial_platform_fee = token_factory::get_balance(dex_config, tokenA);
+        let initial_platform_fee = token_factory_test::balance_of(dex_config, tokenA);
 
         // Simulate trading over time
         let trader = create_account_for_test(@0x3);
@@ -529,7 +530,7 @@ module dynexus_swap::enhanced_test_dynaswap {
         };
 
         // Check accumulated fees
-        let final_platform_fee = token_factory::get_balance(dex_config, tokenA);
+        let final_platform_fee = token_factory_test::balance_of(dex_config, tokenA);
         let actual_platform_fee = final_platform_fee - initial_platform_fee;
 
         assert!(actual_platform_fee == expected_platform_fee, E_INVALID_FEE);
@@ -548,8 +549,8 @@ module dynexus_swap::enhanced_test_dynaswap {
         token_factory::mint_token(&issuer, address_of(&provider), tokenA, quants(100000, 8));
         token_factory::mint_token(&issuer, address_of(&provider), tokenB, quants(100000, 8));
 
-        let initial_a = token_factory::get_token_balance(&provider, tokenA);
-        let initial_b = token_factory::get_token_balance(&provider, tokenB);
+        let initial_a = token_factory_test::balance_of(address_of(&provider), tokenA);
+        let initial_b = token_factory_test::balance_of(address_of(&provider), tokenB);
 
         dex::create_pool(&provider, tokenA, tokenB, quants(10, 8), quants(10, 8));
         let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
@@ -569,15 +570,15 @@ module dynexus_swap::enhanced_test_dynaswap {
         };
 
         // Get LP token balance before claiming rewards
-        let lp_token_balance_before = token_factory::get_balance(address_of(&provider), pool_addr);
+        let lp_token_balance_before = token_factory_test::balance_of(address_of(&provider), pool_addr);
 
         // Remove liquidity to claim accumulated fees
         let liquidity_to_remove = lp_token_balance_before / 2; // Remove half the liquidity
         dex::remove_liquidity(&provider, tokenA, tokenB, liquidity_to_remove);
 
         // Check final balances
-        let final_a = token_factory::get_token_balance(&provider, tokenA);
-        let final_b = token_factory::get_token_balance(&provider, tokenB);
+        let final_a = token_factory_test::balance_of(address_of(&provider), tokenA);
+        let final_b = token_factory_test::balance_of(address_of(&provider), tokenB);
 
         // Verify that the provider received more tokens than initially provided
         // This accounts for the accumulated trading fees
@@ -589,7 +590,7 @@ module dynexus_swap::enhanced_test_dynaswap {
         assert!(final_b >= expected_b, 1002); // Should have at least the expected TokenB
 
         // Verify that some LP tokens are still held
-        let remaining_lp_tokens = token_factory::get_balance(address_of(&provider), pool_addr);
+        let remaining_lp_tokens = token_factory_test::balance_of(address_of(&provider), pool_addr);
         assert!(remaining_lp_tokens > 0, 1003);
 
         // Verify pool still has liquidity
