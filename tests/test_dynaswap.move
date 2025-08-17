@@ -41,8 +41,10 @@ module dynexus_swap::test_dynaswap {
 
     fun setup(admin: &signer) {
         genesis::setup();
-        create_account_for_test(address_of(admin));
-        token_factory::initalize_token_factory_with_out_genesis(admin);
+
+        let admin_address = address_of(admin);
+        create_account_for_test(admin_address);
+        token_factory_test::setup_token_factory(admin_address);
         dex::test_init_dex(admin);
     }
 
