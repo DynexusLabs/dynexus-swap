@@ -73,6 +73,7 @@ module dynexus_swap::test_dynaswap {
     }
 
     fun create_token_pair_with_pool(issuer: &signer): (signer, address, address, address) {
+        token_factory::faucet_dynexus(issuer);
         let provider = create_account_for_test(@0x3);
 
         let (_, _, tokenA) =
@@ -97,8 +98,6 @@ module dynexus_swap::test_dynaswap {
                 utf8(b""),
                 1
             );
-
-
 
         token_factory::mint_token(issuer, address_of(&provider), tokenA,quants(10000, 8) );
         token_factory::mint_token(issuer, address_of(&provider), tokenB, quants(10000, 8));
@@ -147,6 +146,8 @@ module dynexus_swap::test_dynaswap {
         let owner_addr = @0x123;
         let user_addr = @0x456;
         let owner = &create_account_for_test(owner_addr);
+        token_factory::faucet_dynexus(owner);
+
         let user = &create_account_for_test(user_addr);
 
         let (token_a_name, token_b_name) = (utf8(b"Token A"), utf8(b"Token b"));
@@ -198,7 +199,9 @@ module dynexus_swap::test_dynaswap {
 
         // Create token issuers
         let token_a_issuer = &create_account_for_test(@0xA);
+        token_factory::faucet_dynexus(token_a_issuer);
         let token_b_issuer = &create_account_for_test(@0xB);
+        token_factory::faucet_dynexus(token_b_issuer);
         let liquidity_provider = create_account_for_test(@0xC);
 
         let (token_a_name, token_b_name) = (utf8(b"Token A"), utf8(b"Token b"));
@@ -244,6 +247,7 @@ module dynexus_swap::test_dynaswap {
 
         let issuer = create_account_for_test(@0xA);
         let provider = create_account_for_test(@0xB);
+        token_factory::faucet_dynexus(&provider);
         let token_b_name = utf8(b"Token B");
 
         let (_,_, tokenB) =
@@ -251,7 +255,7 @@ module dynexus_swap::test_dynaswap {
                 &provider,
                 token_b_name,
                 utf8(b"TB"),
-                9,
+                8,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
                 utf8(b""),
@@ -270,6 +274,7 @@ module dynexus_swap::test_dynaswap {
 
         let issuer = create_account_for_test(@0xA);
         let provider = create_account_for_test(@0xB);
+        token_factory::faucet_dynexus(&provider);
         let token_b_name = utf8(b"Token B");
         let token_a_name = utf8(b"Token A");
 
@@ -278,7 +283,7 @@ module dynexus_swap::test_dynaswap {
                 &provider,
                 token_a_name,
                 utf8(b"TA"),
-                9,
+                8,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
                 utf8(b""),
@@ -290,7 +295,7 @@ module dynexus_swap::test_dynaswap {
                 &provider,
                 token_b_name,
                 utf8(b"TB"),
-                9,
+                8,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
                 utf8(b""),
@@ -309,6 +314,7 @@ module dynexus_swap::test_dynaswap {
 
         // Create token issuers
         let token_a_issuer = create_account_for_test(@0xA);
+        token_factory::faucet_dynexus(&token_a_issuer);
         let liquidity_provider = create_account_for_test(@0xC);
 
         let (token_a_name, token_b_name) = (utf8(b"Token A"), utf8(b"Token b"));
@@ -319,7 +325,7 @@ module dynexus_swap::test_dynaswap {
                 &token_a_issuer,
                 token_a_name,
                 utf8(b"TA"),
-                9,
+                8,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
                 utf8(b""),
@@ -331,7 +337,7 @@ module dynexus_swap::test_dynaswap {
                 &token_a_issuer,
                 token_b_name,
                 utf8(b"TB"),
-                9,
+                8,
                 quants(TEST_INIT_SUPPLY, 8),
                 utf8(b""),
                 utf8(b""),
@@ -362,9 +368,9 @@ module dynexus_swap::test_dynaswap {
         let name = fungible_asset::name(lp_token);
         let symbol = fungible_asset::symbol(lp_token);
         let decimals = fungible_asset::decimals(lp_token);
-        assert!(decimals == 9, E_INVALID_LP_METADATA); // Should use higher decimals (9 > 6)
-        assert!(symbol == utf8(b"DYNEXUS-LP-TA-TB"), E_INVALID_LP_METADATA);
-        assert!(name == utf8(b"DYNEXUS LP Token TA-TB"), E_INVALID_LP_METADATA);
+        assert!(decimals == 8, E_INVALID_LP_METADATA); // Should use higher decimals (9 > 6)
+        assert!(symbol == utf8(b"DYNEXUS-LP-TB-TA"), E_INVALID_LP_METADATA);
+        assert!(name == utf8(b"DYNEXUS LP Token TB-TA"), E_INVALID_LP_METADATA);
     }
 
     #[test(admin = @dynexus_swap)]
@@ -373,6 +379,7 @@ module dynexus_swap::test_dynaswap {
         setup(admin);
 
         let issuer = create_account_for_test(@0x1);
+        token_factory::faucet_dynexus(& issuer);
         let provider = create_account_for_test(@0x2);
 
         let tokenA = test_create_token(&issuer, utf8(b"TKA"), utf8(b"A"), 6, 0);
@@ -391,6 +398,7 @@ module dynexus_swap::test_dynaswap {
 
         let issuer = create_account_for_test(@0x3);
         let provider = create_account_for_test(@0x4);
+        token_factory::faucet_dynexus(&issuer);
 
         let tokenA = test_create_token(&issuer, utf8(b"TKA"), utf8(b"A"), 8, 0);
         let tokenB = test_create_token(&issuer, utf8(b"TKB"), utf8(b"B"), 8, 1);
@@ -412,19 +420,20 @@ module dynexus_swap::test_dynaswap {
         setup(admin);
 
         let issuer = create_account_for_test(@0x5);
+        token_factory::faucet_dynexus(&issuer);
         let provider = create_account_for_test(@0x6);
 
         let tokenA = test_create_token(
             &issuer,
             utf8(b"SuperTokenAlpha"),
             utf8(b"ALPHA"),
-            9,0
+            8,0
         );
         let tokenB = test_create_token(
             &issuer,
             utf8(b"BetaTokenBravo"),
             utf8(b"BETA"),
-            9,
+            8,
             1
         );
 
@@ -441,11 +450,11 @@ module dynexus_swap::test_dynaswap {
 
         // Name should still be correctly constructed
         assert!(
-            name == utf8(b"DYNEXUS LP Token ALPHA-BETA"),
+            name == utf8(b"DYNEXUS LP Token BETA-ALPHA"),
             E_INVALID_LP_METADATA
         );
         assert!(
-            symbol == utf8(b"DYNEXUS-LP-ALPHA-BETA"),
+            symbol == utf8(b"DYNEXUS-LP-BETA-ALPHA"),
             E_INVALID_LP_METADATA
         );
     }
@@ -496,6 +505,8 @@ module dynexus_swap::test_dynaswap {
         setup(admin);
         // Step 2: Create issuer, user
         let issuer = create_account_for_test(@0x3);
+        token_factory::faucet_dynexus(&issuer);
+
         let user = create_account_for_test(@0x4);
 
         // Step 3: Create and register 2 tokens
@@ -504,8 +515,8 @@ module dynexus_swap::test_dynaswap {
                 &issuer,
                 utf8(b"Gold"),
                 utf8(b"TG"),
-                6,
-                quants(1000, 8),
+                8,
+                quants(1000, 6),
                 utf8(b""),
                 utf8(b""),
                 0
@@ -515,8 +526,8 @@ module dynexus_swap::test_dynaswap {
                 &issuer,
                 utf8(b"Silver"),
                 utf8(b"TS"),
-                6,
-                quants(1000, 8),
+                8,
+                quants(1000, 6),
                 utf8(b""),
                 utf8(b""),
                 1
@@ -531,7 +542,7 @@ module dynexus_swap::test_dynaswap {
 
         // Check pool state
         let (_, rx, ry, supply, _, _, _) = dex::get_pool_info(pool_addr);
-        assert!(rx == quants(35, 8) && ry == quants(12, 8) && supply > 0, 2001);
+        assert!(rx == quants(12, 8) && ry == quants(35, 8) && supply > 0, 2001);
 
         let amount_x_desired= quants(2, 8);
         let amount_y_desired =quants(7, 8);
@@ -725,8 +736,8 @@ module dynexus_swap::test_dynaswap {
         let (provider, tokenA, tokenB, pool_addr) = create_token_pair_with_pool(admin);
 
         // Add substantial liquidity
-        let amount_x = quants(10000, 8);
-        let amount_y = quants(1000, 8);
+        let amount_x = quants(1000, 8);
+        let amount_y = quants(100, 8);
         let (amount_x_min, amount_y_min) = dex::calculate_min_amounts(pool_addr, amount_x, amount_y, 1);
         dex::add_liquidity(&provider, tokenA, tokenB, amount_x, amount_y, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
@@ -759,8 +770,8 @@ module dynexus_swap::test_dynaswap {
         let (provider, tokenA, tokenB, pool_addr) = create_token_pair_with_pool(admin);
 
         // Add substantial liquidity (10,000:1,000 ratio)
-        let amount_x = quants(10000, 8);
-        let amount_y = quants(1000, 8);
+        let amount_x = quants(1000, 8);
+        let amount_y = quants(100, 8);
         let (amount_x_min, amount_y_min) = dex::calculate_min_amounts(pool_addr, amount_x, amount_y, 1);
         dex::add_liquidity(&provider, tokenA, tokenB, amount_x, amount_y, amount_x_min, amount_y_min, timestamp::now_seconds() + 10);
 
@@ -834,6 +845,8 @@ module dynexus_swap::test_dynaswap {
     fun test_token_with_different_decimals(admin: &signer) {
         setup(admin);
         let issuer = create_account_for_test(@0x5678);
+        token_factory::faucet_dynexus(&issuer);
+
         let provider = create_account_for_test(@0x6789);
 
         // Create tokens with different decimals
@@ -851,7 +864,7 @@ module dynexus_swap::test_dynaswap {
             &issuer,
             utf8(b"Token18"),
             utf8(b"T9"),
-            18,
+            8,
             quants(100, 8),
             utf8(b""),
             utf8(b""),

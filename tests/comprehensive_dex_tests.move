@@ -22,7 +22,7 @@ module dynexus_swap::comprehensive_dex_tests {
     fun setup(admin: &signer) {
         genesis::setup();
         create_account_for_test(address_of(admin));
-        token_factory::initalize_token_factory_with_out_genesis(admin);
+        token_factory_test::setup_token_factory(address_of(admin));
         dex::test_init_dex(admin);
     }
 
@@ -67,6 +67,7 @@ module dynexus_swap::comprehensive_dex_tests {
     fun test_multiple_pools_with_multiple_users(admin: &signer) {
         setup(admin);
         let issuer = create_account_for_test(@0x1);
+        token_factory::faucet_dynexus(&issuer);
 
         // Create 3 tokens
         let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(TEST_INIT_SUPPLY, 8), 0);
@@ -121,21 +122,21 @@ module dynexus_swap::comprehensive_dex_tests {
                 if (trade_rounds % 3 == 0) {
                     // Swap A->B in pool1
                     let pool_address= dex::get_pool_object_address(tokenA, tokenB);
-                    let (res_x, res_y) = dex::get_pool_reserves(pool_address);
+                    let (res_y, res_x) = dex::get_pool_reserves(pool_address);
                     let amount_in = max_single_swap(res_x);
                     let amount_out = dex::get_amount_out(amount_in, res_x, res_y);
                     dex::swap(trader, tokenA, tokenB, amount_in, amount_out, timestamp::now_seconds() + 10);
                 } else if (trade_rounds % 3 == 1) {
                     // Swap C->A in pool2
                     let pool_address= dex::get_pool_object_address(tokenA, tokenC);
-                    let (res_x, res_y) = dex::get_pool_reserves(pool_address);
+                    let (res_y, res_x) = dex::get_pool_reserves(pool_address);
                     let amount_in = max_single_swap(res_x);
                     let amount_out = dex::get_amount_out(amount_in, res_y, res_x);
                     dex::swap(trader, tokenC, tokenA, amount_in, amount_out, timestamp::now_seconds() + 10);
                 } else {
                     // Swap B->C in pool3
                     let pool_address= dex::get_pool_object_address(tokenB, tokenC);
-                    let (res_x, res_y) = dex::get_pool_reserves(pool_address);
+                    let (res_y, res_x) = dex::get_pool_reserves(pool_address);
                     let amount_in = max_single_swap(res_x);
                     let amount_out = dex::get_amount_out(amount_in, res_x, res_y);
                     dex::swap(trader, tokenB, tokenC, amount_in, amount_out, timestamp::now_seconds() + 10);
@@ -172,19 +173,19 @@ module dynexus_swap::comprehensive_dex_tests {
         let d_x = quants(500, 8);
         let d_y = d_x;
         let (amount_x_min, amount_y_min) =  dex::calculate_min_amounts(pool1_addr,d_x, d_y,1);
-        dex::add_liquidity(&provider1, tokenA, tokenB, d_x,d_y, amount_x_min,  amount_y_min, deadline);
+        dex::add_liquidity(&provider1, tokenA, tokenB, d_x,d_y, amount_y_min, amount_x_min, deadline);
 
         let pool2_addr = dex::get_pool_object_address(tokenA, tokenC);
         let d_x = quants(1000, 8);
         let d_y = quants(500, 8);
         let (amount_x_min, amount_y_min) =  dex::calculate_min_amounts(pool2_addr,d_x, d_y,1);
-        dex::add_liquidity(&provider2, tokenA, tokenC, d_x, d_y, amount_x_min, amount_y_min ,deadline); // Maintain ratio
+        dex::add_liquidity(&provider2, tokenC, tokenA, d_x, d_y, amount_x_min, amount_y_min,deadline); // Maintain ratio
 
         let pool3_addr = dex::get_pool_object_address(tokenB, tokenC);
         let d_x = quants(1500, 8);
         let d_y = quants(500, 8);
         let (amount_x_min, amount_y_min) =  dex::calculate_min_amounts(pool3_addr,d_x, d_y,1);
-        dex::add_liquidity(&provider3, tokenB, tokenC, d_x, d_y, amount_x_min, amount_y_min, deadline); // Maintain ratio
+        dex::add_liquidity(&provider3, tokenB, tokenC, d_x, d_y, amount_y_min, amount_x_min, deadline); // Maintain ratio
 
         // Verify reserves increased
         let pool = dex::get_pool_object_address(tokenA, tokenB);
@@ -209,25 +210,27 @@ module dynexus_swap::comprehensive_dex_tests {
     fun test_liquidity_management_scenarios(admin: &signer) {
         setup(admin);
         let issuer = create_account_for_test(@0x1);
+        token_factory::faucet_dynexus(&issuer);
+
         let provider = create_account_for_test(@0x2);
 
         // Create tokens with different decimals
         let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 6, quants(TEST_INIT_SUPPLY, 6), 0);
-        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 10, quants(TEST_INIT_SUPPLY, 10), 1);
+        let tokenB = create_test_token(&issuer, utf8(b"TokenB"), utf8(b"TB"), 8, quants(TEST_INIT_SUPPLY, 8), 1);
 
         // Fund provider
         token_factory::mint_token(&issuer, address_of(&provider), tokenA, quants(50000, 6));
-        token_factory::mint_token(&issuer, address_of(&provider), tokenB, quants(50000, 10));
+        token_factory::mint_token(&issuer, address_of(&provider), tokenB, quants(50000, 8));
 
         // Create initial pool
-        dex::create_pool(&provider, tokenA, tokenB, quants(10, 6), quants(10, 10));
+        dex::create_pool(&provider, tokenA, tokenB, quants(10, 6), quants(10, 8));
 
         // Add liquidity in multiple steps
         let x_add_amounts = vector[
             quants(100, 6), quants(200, 6), quants(300, 6)
         ];
         let y_add_amounts = vector[
-            quants(100, 10), quants(200, 10), quants(300, 10)
+            quants(100, 8), quants(200, 8), quants(300, 8)
         ];
 
         let i = 0;
@@ -238,15 +241,15 @@ module dynexus_swap::comprehensive_dex_tests {
             let (amount_a) = *x_add_amounts.borrow(i);
             let (amount_b) = *y_add_amounts.borrow(i);
             let (amount_x_min, amount_y_min) =  dex::calculate_min_amounts(pool_addr,amount_a, amount_b,1);
-            dex::add_liquidity(&provider, tokenA, tokenB, amount_a, amount_b,amount_x_min, amount_y_min, deadline);
+            dex::add_liquidity(&provider, tokenB, tokenA, amount_a, amount_b,amount_x_min, amount_y_min, deadline);
             i += 1;
         };
 
         // Verify reserves
         let pool = dex::get_pool_object_address(tokenA, tokenB);
-        let (res_x, res_y) = dex::get_pool_reserves(pool);
-        assert!(res_x == quants(610, 6), 2001);
-        assert!(res_y == quants(610, 10), 2002);
+        let (res_y, res_x) = dex::get_pool_reserves(pool);
+        assert!(res_x == quants(16, 6), 2001);
+        assert!(res_y == quants(16, 8), 2002);
 
         // Create trader and perform swaps
         let trader = create_account_for_test(@0x3);
@@ -255,8 +258,8 @@ module dynexus_swap::comprehensive_dex_tests {
         // Multiple swaps with varying amounts
         let j = 0;
         while (j < 3) {
-            let pool = dex::get_pool_object_address(tokenA, tokenB);
-            let (res_x, res_y) = dex::get_pool_reserves(pool);
+            let pool = dex::get_pool_object_address(tokenB, tokenA);
+            let (res_y, res_x) = dex::get_pool_reserves(pool);
             let amount = max_single_swap(res_x);
             let amount_out = dex::get_amount_out(amount, res_x, res_y);
             dex::swap(&trader, tokenA, tokenB, amount, amount_out, timestamp::now_seconds() + 10);
@@ -264,7 +267,7 @@ module dynexus_swap::comprehensive_dex_tests {
         };
 
         // Remove liquidity in portions
-        let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
+        let pool_addr = dex::get_pool_object_address(tokenB, tokenA);
         let lp_address = dex::get_lp_address(pool_addr);
         let total_lp = token_factory_test::balance_of(address_of(&provider), lp_address);
 
@@ -284,6 +287,8 @@ module dynexus_swap::comprehensive_dex_tests {
     fun test_frontrunning_protection(admin: &signer) {
         setup(admin);
         let issuer = create_account_for_test(@0x1);
+        token_factory::faucet_dynexus(&issuer);
+
         let provider = create_account_for_test(@0x2);
 
         let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(TEST_INIT_SUPPLY, 8), 0);
@@ -320,6 +325,7 @@ module dynexus_swap::comprehensive_dex_tests {
     fun test_reentrancy_and_race_conditions(admin: &signer) {
         setup(admin);
         let issuer = create_account_for_test(@0x1);
+        token_factory::faucet_dynexus(&issuer);
 
         // Create tokens
         let tokenA = create_test_token(&issuer, utf8(b"TokenA"), utf8(b"TA"), 8, quants(TEST_INIT_SUPPLY, 8), 0);
@@ -335,6 +341,7 @@ module dynexus_swap::comprehensive_dex_tests {
         // Fund providers and create pools
         let i = 0;
         dex::create_pool(&issuer, tokenA, tokenB, quants(10, 8), quants(10, 8));
+        let (tokenA, tokenB, _, _) = dex::sort_token(tokenA, tokenB, 0, 0);
         while (i < 3) {
             let provider = providers.borrow(i);
             token_factory::mint_token(&issuer, address_of(provider), tokenA, quants(10000, 8));
