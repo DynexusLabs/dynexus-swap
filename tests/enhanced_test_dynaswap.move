@@ -351,7 +351,15 @@ module dynexus_swap::enhanced_test_dynaswap {
 
         // Try to remove almost all liquidity (should leave minimum)
         let remove_amount = lp_balance - MIN_LIQUIDITY;
-        dex::remove_liquidity(&provider, tokenA, tokenB, remove_amount);
+        dex::remove_liquidity(
+            &provider,
+            tokenA,
+            tokenB,
+            remove_amount,
+            0,
+            0,
+            18446744073709551615
+        );
 
         // Check that minimum liquidity remains
         let remaining_lp =
@@ -956,7 +964,15 @@ module dynexus_swap::enhanced_test_dynaswap {
             address_of(&provider), lp_address
         );
 
-        dex::remove_liquidity(&provider, tokenA, tokenB, lp_balance);
+        dex::remove_liquidity(
+            &provider,
+            tokenA,
+            tokenB,
+            lp_balance,
+            0,
+            0,
+            18446744073709551615
+        );
 
         // Check final balances
         let final_a = token_factory_test::balance_of(address_of(&provider), tokenA);
@@ -1015,7 +1031,10 @@ module dynexus_swap::enhanced_test_dynaswap {
             quants(10, 8)
         );
 
-        let dex_config = dex::get_dex_object_address();
+        let dex_config = {
+            let (_, _, recipient) = dex::get_fee_config();
+            recipient
+        };
         let initial_platform_fee = token_factory_test::balance_of(dex_config, tokenA);
 
         // Simulate trading over time
@@ -1148,7 +1167,15 @@ module dynexus_swap::enhanced_test_dynaswap {
 
         // Remove liquidity to claim accumulated fees
         let liquidity_to_remove = lp_token_balance_before / 2; // Remove half the liquidity
-        dex::remove_liquidity(&provider, tokenA, tokenB, liquidity_to_remove);
+        dex::remove_liquidity(
+            &provider,
+            tokenA,
+            tokenB,
+            liquidity_to_remove,
+            0,
+            0,
+            18446744073709551615
+        );
 
         // Check final balances
         let final_a = token_factory_test::balance_of(address_of(&provider), tokenA);

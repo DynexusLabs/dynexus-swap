@@ -342,7 +342,15 @@ module dynexus_swap::comprehensive_dex_tests {
             token_factory_test::balance_of(
                 address_of(&provider1), dex::get_lp_address(pool1_addr)
             );
-        dex::remove_liquidity(&provider1, tokenA, tokenB, lp_balance / 2);
+        dex::remove_liquidity(
+            &provider1,
+            tokenA,
+            tokenB,
+            lp_balance / 2,
+            0,
+            0,
+            18446744073709551615
+        );
 
         // Verify final state
         let pool = dex::get_pool_object_address(tokenA, tokenB);
@@ -472,14 +480,25 @@ module dynexus_swap::comprehensive_dex_tests {
         let total_lp = token_factory_test::balance_of(address_of(&provider), lp_address);
 
         // Remove 30%, then 50% of remaining
-        dex::remove_liquidity(&provider, tokenA, tokenB, (total_lp * 30) / 100);
+        dex::remove_liquidity(
+            &provider,
+            tokenA,
+            tokenB,
+            (total_lp * 30) / 100,
+            0,
+            0,
+            18446744073709551615
+        );
         let remaining_lp =
             token_factory_test::balance_of(address_of(&provider), lp_address);
         dex::remove_liquidity(
             &provider,
             tokenA,
             tokenB,
-            (remaining_lp * 50) / 100
+            (remaining_lp * 50) / 100,
+            0,
+            0,
+            18446744073709551615
         );
 
         // Verify final LP balance
@@ -715,7 +734,15 @@ module dynexus_swap::comprehensive_dex_tests {
             let lp_balance =
                 token_factory_test::balance_of(address_of(provider), lp_address);
             if (lp_balance > quants(5, 8)) {
-                dex::remove_liquidity(provider, tokenA, tokenB, quants(5, 8));
+                dex::remove_liquidity(
+                    provider,
+                    tokenA,
+                    tokenB,
+                    quants(5, 8),
+                    0,
+                    0,
+                    18446744073709551615
+                );
             };
 
             k += 1;
