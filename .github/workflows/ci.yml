@@ -38,8 +38,6 @@ jobs:
           repository: DynexusLabs/dynexus-forge
           ref: phase_1
           path: dynexus-forge
-          # forge is private: org/repo secret with read access to DynexusLabs/dynexus-forge
-          token: ${{ secrets.DYNEXUS_READ_TOKEN }}
       - uses: oven-sh/setup-bun@v2
       - name: Install Aptos CLI
         run: |
