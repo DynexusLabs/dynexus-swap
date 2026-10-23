@@ -99,7 +99,7 @@ module dynexus_swap::dex {
         platform_fee_recipient: address,
         extend_ref: ExtendRef,
         pools: Table<u64, address>,
-        total_pools: u64,
+        total_pools: u64
     }
 
     /// LiquidityPool holds pool info
@@ -207,8 +207,6 @@ module dynexus_swap::dex {
         timestamp: u64
     }
 
-
-
     /// Initialize Dex module
     fun init_module(admin: &signer) {
         let admin_addr = address_of(admin);
@@ -227,8 +225,8 @@ module dynexus_swap::dex {
                 platform_fee_percent, // (0.02%)
                 platform_fee_recipient: address_of(obj_signer),
                 pools: table::new(),
-                total_pools:0,
-                extend_ref,
+                total_pools: 0,
+                extend_ref
             }
         );
 
@@ -276,7 +274,9 @@ module dynexus_swap::dex {
         // Create pool account
         let pool_seed = generate_pool_seed(&token_x_sorted, &token_y_sorted);
         let obj_signer = &object::generate_signer_for_extending(&dex_config.extend_ref);
-        let pool_addr = object::create_object_address(&address_of(obj_signer), pool_seed);
+        let pool_addr = object::create_object_address(
+            &address_of(obj_signer), pool_seed
+        );
         assert_pool_not_exist(&pool_addr);
 
         // Initialize LP token
@@ -302,11 +302,22 @@ module dynexus_swap::dex {
         let token_x_metadata = object::address_to_object<Metadata>(token_x_sorted);
         let token_y_metadata = object::address_to_object<Metadata>(token_y_sorted);
 
-        primary_fungible_store::transfer(owner, token_x_metadata, pool_addr, amount_x_sorted);
-        primary_fungible_store::transfer(owner, token_y_metadata, pool_addr, amount_y_sorted);
+        primary_fungible_store::transfer(
+            owner,
+            token_x_metadata,
+            pool_addr,
+            amount_x_sorted
+        );
+        primary_fungible_store::transfer(
+            owner,
+            token_y_metadata,
+            pool_addr,
+            amount_y_sorted
+        );
 
         // 2. CALCULATE AND MINT LP TOKENS
-        let initial_lp_token = calculate_initial_lp_tokens(amount_x_sorted, amount_y_sorted);
+        let initial_lp_token =
+            calculate_initial_lp_tokens(amount_x_sorted, amount_y_sorted);
         let lp_asset = fungible_asset::mint(&mint_ref, initial_lp_token);
         primary_fungible_store::deposit(address_of(owner), lp_asset);
 
@@ -353,12 +364,12 @@ module dynexus_swap::dex {
         provider: &signer,
         token_x: address,
         token_y: address,
-        amount_x_desired: u64,  // Desired amount of TokenA
-        amount_y_desired: u64,  // Desired amount of TokenB
-        amount_x_min: u64,      // Minimum acceptable TokenA (after slippage)
-        amount_y_min: u64,       // Minimum acceptable TokenB (after slippage)
-        deadline: u64,          // Transaction deadline for MEV protection
-    ) acquires LiquidityPool{
+        amount_x_desired: u64, // Desired amount of TokenA
+        amount_y_desired: u64, // Desired amount of TokenB
+        amount_x_min: u64, // Minimum acceptable TokenA (after slippage)
+        amount_y_min: u64, // Minimum acceptable TokenB (after slippage)
+        deadline: u64 // Transaction deadline for MEV protection
+    ) acquires LiquidityPool {
         // Deadline protection against MEV
         assert!(timestamp::now_seconds() <= deadline, E_DEADLINE_EXCEEDED);
 
@@ -366,12 +377,25 @@ module dynexus_swap::dex {
         assert_pool_exist(&pool_addr);
         let pool = borrow_global_mut<LiquidityPool>(pool_addr);
 
-
         let (token_x_sorted, token_y_sorted, amount_x_sorted, amount_y_sorted) =
-            sort_token(token_x, token_y, amount_x_desired, amount_y_desired);
-        assert!(token_x_sorted == pool.token_x && token_y_sorted == pool.token_y, E_WRONG_TOKEN_ORDER);
+            sort_token(
+                token_x,
+                token_y,
+                amount_x_desired,
+                amount_y_desired
+            );
+        assert!(
+            token_x_sorted == pool.token_x && token_y_sorted == pool.token_y,
+            E_WRONG_TOKEN_ORDER
+        );
 
-        let (amount_x, amount_y) = calculate_optimal_add_amounts(pool.reserve_x, pool.reserve_y, amount_x_sorted, amount_y_sorted,);
+        let (amount_x, amount_y) =
+            calculate_optimal_add_amounts(
+                pool.reserve_x,
+                pool.reserve_y,
+                amount_x_sorted,
+                amount_y_sorted
+            );
 
         if (token_x == token_x_sorted) {
             // Original order matches sorted order
@@ -392,13 +416,14 @@ module dynexus_swap::dex {
         );
 
         // Calculate LP tokens FIRST (before changing reserves)
-        let lp_tokens_to_mint = calculate_lp_tokens_for_deposit(
-            amount_x,
-            amount_y,
-            pool.reserve_x,
-            pool.reserve_y,
-            pool.lp_token_supply
-        );
+        let lp_tokens_to_mint =
+            calculate_lp_tokens_for_deposit(
+                amount_x,
+                amount_y,
+                pool.reserve_x,
+                pool.reserve_y,
+                pool.lp_token_supply
+            );
 
         // Update reserves FIRST
         pool.reserve_x += amount_x;
@@ -422,28 +447,26 @@ module dynexus_swap::dex {
             amount_y
         );
 
-
-
         // Mint and deposit LP tokens
         let lp_asset = fungible_asset::mint(&pool.mint_ref, lp_tokens_to_mint);
         primary_fungible_store::deposit(provider_addr, lp_asset);
 
         // Emit liquidity added event
-        event::emit(LiquidityAddedEvent {
-            pool_address: pool_addr,
-            provider: provider_addr,
-            token_x: token_x_sorted,
-            token_y: token_y_sorted,
-            amount_x,
-            amount_y,
-            lp_tokens_minted: lp_tokens_to_mint,
-            new_reserve_x: pool.reserve_x,
-            new_reserve_y: pool.reserve_y,
-            timestamp: timestamp::now_seconds()
-        });
+        event::emit(
+            LiquidityAddedEvent {
+                pool_address: pool_addr,
+                provider: provider_addr,
+                token_x: token_x_sorted,
+                token_y: token_y_sorted,
+                amount_x,
+                amount_y,
+                lp_tokens_minted: lp_tokens_to_mint,
+                new_reserve_x: pool.reserve_x,
+                new_reserve_y: pool.reserve_y,
+                timestamp: timestamp::now_seconds()
+            }
+        );
     }
-
-
 
     /// Remove liquidity and receive token_x + token_y
     public entry fun remove_liquidity(
@@ -496,18 +519,20 @@ module dynexus_swap::dex {
         pool.reserve_y -= amount_y;
         pool.lp_token_supply -= lp_amount;
 
-        event::emit(LiquidityRemovedEvent {
-            pool_address: pool_addr,
-            provider: provider_addr,
-            token_x: pool.token_x,
-            token_y: pool.token_y,
-            amount_x,
-            amount_y,
-            lp_tokens_burned: lp_amount,
-            new_reserve_x: pool.reserve_x,
-            new_reserve_y: pool.reserve_y,
-            timestamp: timestamp::now_seconds()
-        });
+        event::emit(
+            LiquidityRemovedEvent {
+                pool_address: pool_addr,
+                provider: provider_addr,
+                token_x: pool.token_x,
+                token_y: pool.token_y,
+                amount_x,
+                amount_y,
+                lp_tokens_burned: lp_amount,
+                new_reserve_x: pool.reserve_x,
+                new_reserve_y: pool.reserve_y,
+                timestamp: timestamp::now_seconds()
+            }
+        );
     }
 
     /// Swap between token_x and token_y
@@ -517,7 +542,7 @@ module dynexus_swap::dex {
         token_out: address,
         amount_in: u64,
         amount_out_min: u64,
-        deadline: u64,
+        deadline: u64
     ) acquires DexConfig, LiquidityPool {
         // Deadline protection against MEV
         assert!(timestamp::now_seconds() <= deadline, E_DEADLINE_EXCEEDED);
@@ -539,12 +564,22 @@ module dynexus_swap::dex {
                 abort E_POOL_NOT_EXISTS
             };
 
-        assert!(amount_in <= (reserve_in * MAX_SINGLE_SWAP_PERCENT) / 10000, E_EXCESSIVE_SWAP);
-        assert!(reserve_in > 0 && reserve_out > 0, E_INSUFFICIENT_LIQUIDITY);
+        assert!(
+            amount_in <= (reserve_in * MAX_SINGLE_SWAP_PERCENT) / 10000,
+            E_EXCESSIVE_SWAP
+        );
+        assert!(
+            reserve_in > 0 && reserve_out > 0,
+            E_INSUFFICIENT_LIQUIDITY
+        );
 
         // Calculate fees
-        let platform_fee = (((amount_in as u128) * (dex_config.platform_fee_percent as u128)) / (FEE_DENOMINATOR as u128) as u64);
-        let swap_fee = (((amount_in as u128) * (dex_config.default_fee_percent as u128)) / (FEE_DENOMINATOR as u128) as u64);
+        let platform_fee =
+            (((amount_in as u128) * (dex_config.platform_fee_percent as u128))
+                / (FEE_DENOMINATOR as u128) as u64);
+        let swap_fee =
+            (((amount_in as u128) * (dex_config.default_fee_percent as u128))
+                / (FEE_DENOMINATOR as u128) as u64);
         let amount_in_after_fees = amount_in - platform_fee - swap_fee;
 
         // AMM calculation
@@ -572,7 +607,12 @@ module dynexus_swap::dex {
 
         // User tranfer amount_in (including swap and plateform fees)
         let token_in_metadata = address_to_object<Metadata>(token_in);
-        primary_fungible_store::transfer(trader, token_in_metadata, pool_addr, amount_in);
+        primary_fungible_store::transfer(
+            trader,
+            token_in_metadata,
+            pool_addr,
+            amount_in
+        );
 
         // Pool transer plateform fee to the recipient
         primary_fungible_store::transfer(
@@ -591,19 +631,21 @@ module dynexus_swap::dex {
         );
 
         // Emit event
-        event::emit(SwapEvent {
-            pool_address: pool_addr,
-            trader: trader_addr,
-            token_in,
-            token_out,
-            amount_in,
-            amount_out,
-            swap_fee,
-            platform_fee,
-            new_reserve_x: pool.reserve_x,
-            new_reserve_y: pool.reserve_y,
-            timestamp: timestamp::now_seconds()
-        });
+        event::emit(
+            SwapEvent {
+                pool_address: pool_addr,
+                trader: trader_addr,
+                token_in,
+                token_out,
+                amount_in,
+                amount_out,
+                swap_fee,
+                platform_fee,
+                new_reserve_x: pool.reserve_x,
+                new_reserve_y: pool.reserve_y,
+                timestamp: timestamp::now_seconds()
+            }
+        );
     }
 
     //
@@ -620,9 +662,7 @@ module dynexus_swap::dex {
         pool_addr
     }
 
-    public fun get_lp_address(
-        pool_address: address
-    ): address acquires LiquidityPool {
+    public fun get_lp_address(pool_address: address): address acquires LiquidityPool {
         assert_pool_exist(&pool_address);
         let pool = borrow_global<LiquidityPool>(pool_address);
         pool.lp_token
@@ -635,12 +675,13 @@ module dynexus_swap::dex {
         slippage_percent: u64
     ): (u64, u64) acquires LiquidityPool {
         let pool = borrow_global<LiquidityPool>(pool_addr);
-        let (expected_x, expected_y) = calculate_optimal_add_amounts(
-            pool.reserve_x,
-            pool.reserve_y,
-            amount_x_desired,
-            amount_y_desired
-        );
+        let (expected_x, expected_y) =
+            calculate_optimal_add_amounts(
+                pool.reserve_x,
+                pool.reserve_y,
+                amount_x_desired,
+                amount_y_desired
+            );
         let amount_x_min = (expected_x * (100 - slippage_percent)) / 100;
         let amount_y_min = (expected_y * (100 - slippage_percent)) / 100;
         (amount_x_min, amount_y_min)
@@ -653,9 +694,7 @@ module dynexus_swap::dex {
 
     /// Get the amount of output token for a given input
     public fun get_amount_out(
-        amount_in: u64,
-        reserve_in: u64,
-        reserve_out: u64,
+        amount_in: u64, reserve_in: u64, reserve_out: u64
     ): u64 acquires DexConfig {
         assert!(amount_in > 0, E_INSUFFICIENT_INPUT_AMOUNT);
         assert!(
@@ -665,7 +704,7 @@ module dynexus_swap::dex {
 
         let dex_addr = get_dex_object_address();
         assert_dex_exist(&dex_addr);
-        let dex= borrow_global<DexConfig>(dex_addr);
+        let dex = borrow_global<DexConfig>(dex_addr);
 
         // Calculate fees first
         let platform_fee = (amount_in * dex.platform_fee_percent) / FEE_DENOMINATOR;
@@ -679,8 +718,7 @@ module dynexus_swap::dex {
     }
 
     public fun calculate_lp_value(
-        pool_addr: address,
-        lp_tokens: u64
+        pool_addr: address, lp_tokens: u64
     ): (u64, u64) acquires LiquidityPool {
         let pool = borrow_global<LiquidityPool>(pool_addr);
         let total_supply = pool.lp_token_supply;
@@ -691,7 +729,6 @@ module dynexus_swap::dex {
 
         (amount_a, amount_b)
     }
-
 
     /// Sort tokens by address to ensure consistent ordering
     public fun sort_token(
@@ -720,13 +757,15 @@ module dynexus_swap::dex {
             return (amount_x_desired, amount_y_desired)
         };
 
-        let amount_y_optimal = (((amount_x_desired as u256) * (reserve_y as u256)) / (reserve_x as u256)) as u64;
+        let amount_y_optimal =
+            (((amount_x_desired as u256) * (reserve_y as u256)) / (reserve_x as u256)) as u64;
 
         if (amount_y_optimal <= amount_y_desired) {
             return (amount_x_desired, amount_y_optimal)
         };
 
-        let amount_x_optimal = (((amount_y_desired as u256) * (reserve_x as u256)) / (reserve_y as u256)) as u64;
+        let amount_x_optimal =
+            (((amount_y_desired as u256) * (reserve_x as u256)) / (reserve_y as u256)) as u64;
         (amount_x_optimal, amount_y_desired)
     }
 
@@ -736,27 +775,28 @@ module dynexus_swap::dex {
         reserve_y: u64,
         amount_x: u64,
         amount_y: u64
-    ){
+    ) {
         // Skip validatetion for initial liquidity
-        if(reserve_x ==0 || reserve_y == 0) return;
+        if (reserve_x == 0 || reserve_y == 0) return;
 
         // Calculate current and new ratios
         let current_ratio = (reserve_x as u256) * 1_000_000 / (reserve_y as u256);
-        let new_ratio = ((reserve_x + amount_x) as u256) * 1_000_000 / ((reserve_y + amount_y) as u256);
+        let new_ratio =
+            ((reserve_x + amount_x) as u256) * 1_000_000
+                / ((reserve_y + amount_y) as u256);
 
         // Allow maximum 0.1% ratio change (1000 = 0.1% of 1_000_000)
-        let ratio_diff = if (new_ratio > current_ratio) {
-            new_ratio - current_ratio
-        }else{
-            current_ratio - new_ratio
-        };
+        let ratio_diff =
+            if (new_ratio > current_ratio) {
+                new_ratio - current_ratio
+            } else {
+                current_ratio - new_ratio
+            };
 
         // Maximum allowed ratio change(0.1%)
         let max_ratio_change = 1000;
         assert!(ratio_diff <= max_ratio_change, E_INVALID_DEPOSIT_RATIO);
     }
-
-
 
     //
     // Internal Functions
@@ -902,9 +942,14 @@ module dynexus_swap::dex {
         total_supply: u64
     ): (u64, u64) {
         assert!(lp_tokens <= total_supply, E_INSUFFICIENT_LIQUIDITY);
-        assert!(reserve_x > 0 && reserve_y > 0, E_INSUFFICIENT_LIQUIDITY);
-        let amount_x = ((((lp_tokens as u256) * (reserve_x as u256) ) / (total_supply as u256)) as u64);
-        let amount_y = ((((lp_tokens as u256) * (reserve_y as u256)) / (total_supply as u256))as u64);
+        assert!(
+            reserve_x > 0 && reserve_y > 0,
+            E_INSUFFICIENT_LIQUIDITY
+        );
+        let amount_x =
+            ((((lp_tokens as u256) * (reserve_x as u256)) / (total_supply as u256)) as u64);
+        let amount_y =
+            ((((lp_tokens as u256) * (reserve_y as u256)) / (total_supply as u256)) as u64);
 
         (amount_x, amount_y)
     }
@@ -951,12 +996,11 @@ module dynexus_swap::dex {
         pool.lp_token_supply
     }
 
-
     #[view]
     /// View Pool info
     /// # Returns
     /// (lp_token, reserve_x, reserve_y, lp_token_supply, fee_percent, platform_fee_percent, platform_fee_recipient)
-   public fun get_pool_info(
+    public fun get_pool_info(
         pool_address: address
     ): (address, u64, u64, u64, u64, u64, address) acquires DexConfig, LiquidityPool {
         assert_pool_exist(&pool_address);
@@ -966,7 +1010,10 @@ module dynexus_swap::dex {
         let pool = borrow_global<LiquidityPool>(pool_address);
 
         (
-            pool.lp_token, pool.reserve_x, pool.reserve_y, pool.lp_token_supply,
+            pool.lp_token,
+            pool.reserve_x,
+            pool.reserve_y,
+            pool.lp_token_supply,
             dex.default_fee_percent,
             dex.platform_fee_percent,
             dex.platform_fee_recipient
