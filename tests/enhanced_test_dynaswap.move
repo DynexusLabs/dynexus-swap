@@ -3,7 +3,10 @@
 module dynexus_swap::enhanced_test_dynaswap {
     use std::signer::address_of;
     use std::string::{utf8, String};
-    use aptos_framework::account::{create_account_for_test, create_signer_for_test};
+    use aptos_framework::account::{
+        create_account_for_test,
+        create_signer_for_test
+    };
     use aptos_framework::genesis;
     use aptos_framework::timestamp;
     use dynexus_forge::token_factory;
@@ -74,7 +77,6 @@ module dynexus_swap::enhanced_test_dynaswap {
     }
 
     // ===== INVARIANT TESTS =====
-
     #[test(admin = @dynexus_swap)]
     fun test_k_invariant_maintenance(admin: &signer) {
         setup(admin);
@@ -293,7 +295,6 @@ module dynexus_swap::enhanced_test_dynaswap {
     }
 
     // ===== EDGE CASE TESTS =====
-
     #[test(admin = @dynexus_swap)]
     fun test_minimum_liquidity_enforcement(admin: &signer) {
         setup(admin);
@@ -529,7 +530,6 @@ module dynexus_swap::enhanced_test_dynaswap {
     }
 
     // ===== STRESS TESTS =====
-
     #[test(admin = @dynexus_swap)]
     fun test_high_volume_trading(admin: &signer) {
         setup(admin);
@@ -720,7 +720,6 @@ module dynexus_swap::enhanced_test_dynaswap {
     }
 
     // ===== SECURITY TESTS =====
-
     #[test(admin = @dynexus_swap)]
     fun test_flash_loan_protection(admin: &signer) {
         setup(admin);
@@ -882,7 +881,6 @@ module dynexus_swap::enhanced_test_dynaswap {
     }
 
     // ===== ECONOMIC TESTS =====
-
     #[test(admin = @dynexus_swap)]
     fun test_impermanent_loss_calculation(admin: &signer) {
         setup(admin);
@@ -1060,8 +1058,10 @@ module dynexus_swap::enhanced_test_dynaswap {
             let (res_y, res_x) = dex::get_pool_reserves(pool_addr);
             let amount = max_single_swap(res_x);
             total_volume += amount;
-            expected_platform_fee +=((amount as u128) * (PLATFORM_FEE_PERCENT as u128)
-                / (FEE_DENOMINATOR as u128) as u64);
+            expected_platform_fee += (
+                (amount as u128) * (PLATFORM_FEE_PERCENT as u128)
+                    / (FEE_DENOMINATOR as u128) as u64
+            );
 
             let amount_out = dex::get_amount_out(amount, res_x, res_y);
             dex::swap(

@@ -96,8 +96,7 @@ module dynexus_swap::dex_v2_tests {
         let (_, _, platform_fee) = dex::quote_swap(a, b, 10 * ONE);
         dex::swap(&provider, a, b, 10 * ONE, 0, deadline());
         assert!(
-            balance_of(recipient, a) == before + platform_fee,
-            2
+            balance_of(recipient, a) == before + platform_fee, 2
         );
     }
 
@@ -111,8 +110,7 @@ module dynexus_swap::dex_v2_tests {
         assert!(
             swap_fee_bps == 25
                 && platform_fee_bps == 5
-                && recipient == @0xfee,
-            1
+                && recipient == @0xfee, 1
         );
 
         let (_, swap_fee, platform_fee) = dex::quote_swap(a, b, 10_000 * 1000);

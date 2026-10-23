@@ -95,7 +95,6 @@ module dynexus_swap::dex {
     //
     // Structs
     //
-
     struct DexConfig has key {
         /// Swap fee kept in the pool for LPs, in basis points
         default_fee_percent: u64,
@@ -123,7 +122,6 @@ module dynexus_swap::dex {
     //
     // Events
     //
-
     #[event]
     struct PoolCratedEvent has drop, store {
         pool_addr: address,
@@ -277,8 +275,9 @@ module dynexus_swap::dex {
         let dex_config = borrow_global_mut<DexConfig>(get_dex_object_address());
 
         // Sort tokens
-        let (token_x_sorted, token_y_sorted, amount_x_sorted, amount_y_sorted) =
-            sort_token(token_x, token_y, amount_x, amount_y);
+        let (
+            token_x_sorted, token_y_sorted, amount_x_sorted, amount_y_sorted
+        ) = sort_token(token_x, token_y, amount_x, amount_y);
 
         // Create pool object (also the LP token metadata)
         let pool_seed = generate_pool_seed(&token_x_sorted, &token_y_sorted);
@@ -384,20 +383,20 @@ module dynexus_swap::dex {
     ) acquires LiquidityPool {
         assert!(timestamp::now_seconds() <= deadline, E_DEADLINE_EXCEEDED);
         assert!(
-            amount_x_desired > 0 && amount_y_desired > 0,
-            E_ZERO_AMOUNT
+            amount_x_desired > 0 && amount_y_desired > 0, E_ZERO_AMOUNT
         );
 
         let pool_addr = get_pool_object_address(token_x, token_y);
         let pool = borrow_global_mut<LiquidityPool>(pool_addr);
 
-        let (token_x_sorted, token_y_sorted, amount_x_sorted, amount_y_sorted) =
-            sort_token(
-                token_x,
-                token_y,
-                amount_x_desired,
-                amount_y_desired
-            );
+        let (
+            token_x_sorted, token_y_sorted, amount_x_sorted, amount_y_sorted
+        ) = sort_token(
+            token_x,
+            token_y,
+            amount_x_desired,
+            amount_y_desired
+        );
         assert!(
             token_x_sorted == pool.token_x && token_y_sorted == pool.token_y,
             E_WRONG_TOKEN_ORDER
@@ -492,8 +491,7 @@ module dynexus_swap::dex {
                 pool.lp_token_supply
             );
         assert!(
-            amount_x > 0 && amount_y > 0,
-            E_INSUFFICIENT_LIQUIDITY
+            amount_x > 0 && amount_y > 0, E_INSUFFICIENT_LIQUIDITY
         );
 
         let (user_amount_x, user_amount_y) =
@@ -598,7 +596,8 @@ module dynexus_swap::dex {
             i += 1;
         };
         assert!(
-            fungible_asset::amount(&fa) >= amount_out_min, E_INSUFFICIENT_OUTPUT_AMOUNT
+            fungible_asset::amount(&fa) >= amount_out_min,
+            E_INSUFFICIENT_OUTPUT_AMOUNT
         );
         primary_fungible_store::deposit(trader_addr, fa);
     }
@@ -626,8 +625,7 @@ module dynexus_swap::dex {
                 (pool.reserve_y, pool.reserve_x)
             };
         assert!(
-            reserve_in > 0 && reserve_out > 0,
-            E_INSUFFICIENT_LIQUIDITY
+            reserve_in > 0 && reserve_out > 0, E_INSUFFICIENT_LIQUIDITY
         );
         assert!(
             (amount_in as u128)
@@ -688,7 +686,6 @@ module dynexus_swap::dex {
     //
     // Public  Functions
     //
-
     #[view]
     /// Get `pool` object account address; aborts if the pool does not exist
     public fun get_pool_object_address(token_x: address, token_y: address): address {
@@ -752,8 +749,7 @@ module dynexus_swap::dex {
     ): u64 acquires DexConfig {
         assert!(amount_in > 0, E_INSUFFICIENT_INPUT_AMOUNT);
         assert!(
-            reserve_in > 0 && reserve_out > 0,
-            E_INSUFFICIENT_LIQUIDITY
+            reserve_in > 0 && reserve_out > 0, E_INSUFFICIENT_LIQUIDITY
         );
 
         let dex_addr = get_dex_object_address();
@@ -825,17 +821,18 @@ module dynexus_swap::dex {
 
     /// Sort tokens by address to ensure consistent ordering
     public fun sort_token(
-        token_x: address,
-        token_y: address,
-        amount_x: u64,
-        amount_y: u64
+        token_x: address, token_y: address, amount_x: u64, amount_y: u64
     ): (address, address, u64, u64) {
         let cmp = comparator::compare(&token_x, &token_y);
 
         if (cmp.is_smaller_than()) {
-            (token_x, token_y, amount_x, amount_y)
+            (
+                token_x, token_y, amount_x, amount_y
+            )
         } else {
-            (token_y, token_x, amount_y, amount_x)
+            (
+                token_y, token_x, amount_y, amount_x
+            )
         }
     }
 
@@ -935,15 +932,11 @@ module dynexus_swap::dex {
 
     /// Calculate withdrawal amounts based on LP tokens
     fun calculate_withdrawal_amounts(
-        lp_tokens: u64,
-        reserve_x: u64,
-        reserve_y: u64,
-        total_supply: u64
+        lp_tokens: u64, reserve_x: u64, reserve_y: u64, total_supply: u64
     ): (u64, u64) {
         assert!(lp_tokens <= total_supply, E_INSUFFICIENT_LIQUIDITY);
         assert!(
-            reserve_x > 0 && reserve_y > 0,
-            E_INSUFFICIENT_LIQUIDITY
+            reserve_x > 0 && reserve_y > 0, E_INSUFFICIENT_LIQUIDITY
         );
         (
             mul_div(lp_tokens, reserve_x, total_supply),
@@ -988,7 +981,6 @@ module dynexus_swap::dex {
     //
     // View function
     //
-
     #[view]
     /// View reserves of a pool
     public fun get_pool_reserves(pool_address: address): (u64, u64) acquires LiquidityPool {
@@ -1021,7 +1013,9 @@ module dynexus_swap::dex {
     /// (lp_token, reserve_x, reserve_y, lp_token_supply, fee_percent, platform_fee_percent, platform_fee_recipient)
     public fun get_pool_info(
         pool_address: address
-    ): (address, u64, u64, u64, u64, u64, address) acquires DexConfig, LiquidityPool {
+    ): (
+        address, u64, u64, u64, u64, u64, address
+    ) acquires DexConfig, LiquidityPool {
         assert_pool_exist(&pool_address);
         let dex = borrow_global<DexConfig>(get_dex_object_address());
         let pool = borrow_global<LiquidityPool>(pool_address);
@@ -1100,8 +1094,7 @@ module dynexus_swap::dex {
     fun assert_valid_route(path: &vector<address>) {
         let len = path.length();
         assert!(
-            len >= 2 && len <= MAX_ROUTE_LENGTH,
-            E_INVALID_ROUTE
+            len >= 2 && len <= MAX_ROUTE_LENGTH, E_INVALID_ROUTE
         );
         let i = 0;
         while (i + 1 < len) {
@@ -1113,7 +1106,6 @@ module dynexus_swap::dex {
     //
     // Test Functions
     //
-
     #[test_only]
     public fun test_init_dex(admin: &signer) {
         init_module(admin);

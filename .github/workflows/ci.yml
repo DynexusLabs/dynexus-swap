@@ -44,6 +44,8 @@ jobs:
           curl -fsSL -o /tmp/aptos.zip "https://github.com/aptos-labs/aptos-core/releases/download/aptos-cli-v${APTOS_CLI_VERSION}/aptos-cli-${APTOS_CLI_VERSION}-Ubuntu-24.04-x86_64.zip"
           sudo unzip -o /tmp/aptos.zip -d /usr/local/bin
           aptos --version
+          # movefmt version defaults to the one tested with this CLI release
+          aptos update movefmt
       - run: bun install --frozen-lockfile
       - name: Lint commit messages
         if: github.event_name == 'pull_request'
