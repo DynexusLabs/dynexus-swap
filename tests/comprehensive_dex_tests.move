@@ -63,7 +63,6 @@ module dynexus_swap::comprehensive_dex_tests {
     }
 
     // ===== MULTI-POOL & MULTI-USER SCENARIOS =====
-
     #[test(admin = @dynexus_swap)]
     fun test_multiple_pools_with_multiple_users(admin: &signer) {
         setup(admin);
@@ -276,8 +275,7 @@ module dynexus_swap::comprehensive_dex_tests {
         let trader1_balance_c =
             token_factory_test::balance_of(address_of(trader1), tokenC);
         assert!(
-            trader1_balance_b > 0 || trader1_balance_c > 0,
-            1004
+            trader1_balance_b > 0 || trader1_balance_c > 0, 1004
         );
 
         // Providers add more liquidity mid-operation
@@ -342,20 +340,26 @@ module dynexus_swap::comprehensive_dex_tests {
             token_factory_test::balance_of(
                 address_of(&provider1), dex::get_lp_address(pool1_addr)
             );
-        dex::remove_liquidity(&provider1, tokenA, tokenB, lp_balance / 2);
+        dex::remove_liquidity(
+            &provider1,
+            tokenA,
+            tokenB,
+            lp_balance / 2,
+            0,
+            0,
+            18446744073709551615
+        );
 
         // Verify final state
         let pool = dex::get_pool_object_address(tokenA, tokenB);
         let (final_res1_x, final_res1_y) = dex::get_pool_reserves(pool);
         assert!(final_res1_x > 0 && final_res1_y > 0, 1006);
         assert!(
-            final_res1_x < res1_x_new && final_res1_y < res1_y_new,
-            1007
+            final_res1_x < res1_x_new && final_res1_y < res1_y_new, 1007
         );
     }
 
     // ===== COMPLEX LIQUIDITY SCENARIOS =====
-
     #[test(admin = @dynexus_swap)]
     fun test_liquidity_management_scenarios(admin: &signer) {
         setup(admin);
@@ -472,14 +476,25 @@ module dynexus_swap::comprehensive_dex_tests {
         let total_lp = token_factory_test::balance_of(address_of(&provider), lp_address);
 
         // Remove 30%, then 50% of remaining
-        dex::remove_liquidity(&provider, tokenA, tokenB, (total_lp * 30) / 100);
+        dex::remove_liquidity(
+            &provider,
+            tokenA,
+            tokenB,
+            (total_lp * 30) / 100,
+            0,
+            0,
+            18446744073709551615
+        );
         let remaining_lp =
             token_factory_test::balance_of(address_of(&provider), lp_address);
         dex::remove_liquidity(
             &provider,
             tokenA,
             tokenB,
-            (remaining_lp * 50) / 100
+            (remaining_lp * 50) / 100,
+            0,
+            0,
+            18446744073709551615
         );
 
         // Verify final LP balance
@@ -715,7 +730,15 @@ module dynexus_swap::comprehensive_dex_tests {
             let lp_balance =
                 token_factory_test::balance_of(address_of(provider), lp_address);
             if (lp_balance > quants(5, 8)) {
-                dex::remove_liquidity(provider, tokenA, tokenB, quants(5, 8));
+                dex::remove_liquidity(
+                    provider,
+                    tokenA,
+                    tokenB,
+                    quants(5, 8),
+                    0,
+                    0,
+                    18446744073709551615
+                );
             };
 
             k += 1;

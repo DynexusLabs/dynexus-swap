@@ -121,15 +121,13 @@ module dynexus_swap::test_dynaswap {
         let (token_x, token_y, _, _) = dex::sort_token(tokenA, tokenB, 0, 0);
         let pool_addr = dex::get_pool_object_address(tokenA, tokenB);
 
-        (provider, token_x, token_y, pool_addr)
+        (
+            provider, token_x, token_y, pool_addr
+        )
     }
 
     fun test_create_token(
-        owner: &signer,
-        name: String,
-        symbol: String,
-        decimals: u8,
-        index: u64
+        owner: &signer, name: String, symbol: String, decimals: u8, index: u64
     ): address {
         let (_, _, addre) =
             token_factory::create_test_token(
@@ -146,10 +144,7 @@ module dynexus_swap::test_dynaswap {
     }
 
     fun test_mint_token(
-        owner: &signer,
-        recipient: address,
-        token: address,
-        amount: u64
+        owner: &signer, recipient: address, token: address, amount: u64
     ) {
         token_factory::mint_token(owner, recipient, token, amount);
     }
@@ -246,13 +241,19 @@ module dynexus_swap::test_dynaswap {
                 1
             );
 
-        let amount = 1000;
+        let amount = 10000;
 
         token_factory::mint_token(token_a_issuer, @0xC, tokenA, amount);
         token_factory::mint_token(token_b_issuer, @0xC, tokenB, amount);
 
         // Create pool with 100 of each token
-        dex::create_pool(&liquidity_provider, tokenA, tokenB, 1000, 1000);
+        dex::create_pool(
+            &liquidity_provider,
+            tokenA,
+            tokenB,
+            10000,
+            10000
+        );
     }
 
     #[test(admin = @dynexus_swap)]
@@ -279,7 +280,7 @@ module dynexus_swap::test_dynaswap {
 
         token_factory::mint_token(&provider, address_of(&issuer), tokenB, 1000);
 
-        dex::create_pool(&provider, tokenB, tokenB, 1000, 1000);
+        dex::create_pool(&provider, tokenB, tokenB, 10000, 10000);
     }
 
     #[test(admin = @dynexus_swap)]
@@ -360,7 +361,7 @@ module dynexus_swap::test_dynaswap {
             );
 
         // Mint initial tokens to liquidity provider
-        let mint_amount = 1000;
+        let mint_amount = 10000;
         token_factory::mint_token(
             &token_a_issuer,
             address_of(&liquidity_provider),
@@ -375,7 +376,13 @@ module dynexus_swap::test_dynaswap {
         );
 
         // Create pool with 100 of each token
-        dex::create_pool(&liquidity_provider, tokenB, tokenA, 1000, 1000);
+        dex::create_pool(
+            &liquidity_provider,
+            tokenB,
+            tokenA,
+            10000,
+            10000
+        );
 
         let pool_address = dex::get_pool_object_address(tokenB, tokenA);
         let lp_token =
@@ -401,11 +408,11 @@ module dynexus_swap::test_dynaswap {
         let tokenA = test_create_token(&issuer, utf8(b"TKA"), utf8(b"A"), 6, 0);
         let tokenB = test_create_token(&issuer, utf8(b"TKB"), utf8(b"B"), 6, 1);
 
-        test_mint_token(&issuer, address_of(&provider), tokenA, 1000);
-        test_mint_token(&issuer, address_of(&provider), tokenB, 1000);
+        test_mint_token(&issuer, address_of(&provider), tokenA, 20000);
+        test_mint_token(&issuer, address_of(&provider), tokenB, 20000);
 
-        dex::create_pool(&provider, tokenA, tokenB, 1000, 1000);
-        dex::create_pool(&provider, tokenA, tokenB, 1000, 1000); // should fail
+        dex::create_pool(&provider, tokenA, tokenB, 10000, 10000);
+        dex::create_pool(&provider, tokenA, tokenB, 10000, 10000); // should fail
     }
 
     #[test(admin = @dynexus_swap)]
@@ -419,10 +426,10 @@ module dynexus_swap::test_dynaswap {
         let tokenA = test_create_token(&issuer, utf8(b"TKA"), utf8(b"A"), 8, 0);
         let tokenB = test_create_token(&issuer, utf8(b"TKB"), utf8(b"B"), 8, 1);
 
-        test_mint_token(&issuer, address_of(&provider), tokenA, 1000);
-        test_mint_token(&issuer, address_of(&provider), tokenB, 1000);
+        test_mint_token(&issuer, address_of(&provider), tokenA, 20000);
+        test_mint_token(&issuer, address_of(&provider), tokenB, 20000);
 
-        dex::create_pool(&provider, tokenA, tokenB, 1000, 1000);
+        dex::create_pool(&provider, tokenA, tokenB, 10000, 10000);
 
         let addr1 = dex::get_pool_object_address(tokenA, tokenB);
         let addr2 = dex::get_pool_object_address(tokenB, tokenA);
@@ -466,20 +473,16 @@ module dynexus_swap::test_dynaswap {
         let symbol = fungible_asset::symbol(lp_asset);
 
         // Name should still be correctly constructed
-        assert!(
-            name == utf8(b"DYNEXUS LP Token BETA-ALPHA"),
-            E_INVALID_LP_METADATA
-        );
-        assert!(
-            symbol == utf8(b"DYNEXUS-LP-BETA-ALPHA"),
-            E_INVALID_LP_METADATA
-        );
+        assert!(name == utf8(b"DYNEXUS LP Token BETA-ALPHA"), E_INVALID_LP_METADATA);
+        assert!(symbol == utf8(b"DYNEXUS-LP-BETA-ALPHA"), E_INVALID_LP_METADATA);
     }
 
     #[test(admin = @dynexus_swap)]
     fun test_add_liquidity(admin: &signer) {
         setup(admin);
-        let (provider, tokenA, tokenB, pool_addr) = create_token_pair_with_pool(admin);
+        let (
+            provider, tokenA, tokenB, pool_addr
+        ) = create_token_pair_with_pool(admin);
         let amount_x_desired = quants(50, 8);
         let amount_y_desired = quants(5, 8);
 
@@ -510,7 +513,9 @@ module dynexus_swap::test_dynaswap {
     #[test(admin = @dynexus_swap)]
     fun test_remove_liquidity(admin: &signer) {
         setup(admin);
-        let (provider, tokenA, tokenB, pool_addr) = create_token_pair_with_pool(admin);
+        let (
+            provider, tokenA, tokenB, pool_addr
+        ) = create_token_pair_with_pool(admin);
 
         let amount_x_desired = quants(10, 8); // 100 TokenA
         let amount_y_desired = quants(1, 8);
@@ -537,14 +542,24 @@ module dynexus_swap::test_dynaswap {
         let lp_balance_before =
             token_factory_test::balance_of(address_of(&provider), lp_address);
         assert!(lp_balance_before > 0, 1002);
-        dex::remove_liquidity(&provider, tokenA, tokenB, lp_balance_before);
+        dex::remove_liquidity(
+            &provider,
+            tokenA,
+            tokenB,
+            lp_balance_before,
+            0,
+            0,
+            18446744073709551615
+        );
 
         let lp_balance_after =
             token_factory_test::balance_of(address_of(&provider), lp_address);
         assert!(lp_balance_after == 0, 1003);
 
+        // MINIMUM_LIQUIDITY LP stays locked in the pool, so reserves never drain to zero
         let (rx, ry) = dex::get_pool_reserves(pool_addr);
-        assert!(rx == 0 && ry == 0, 1004);
+        assert!(rx > 0 && ry > 0, 1004);
+        assert!(dex::get_total_supply(pool_addr) == 1000, 1005);
     }
 
     #[test(admin = @dynexus_swap)]
@@ -638,7 +653,15 @@ module dynexus_swap::test_dynaswap {
         assert!(lp_balance_after_add > 0, 2002);
 
         // Step 6: Remove all liquidity
-        dex::remove_liquidity(&user, tokenA, tokenB, lp_balance_after_add);
+        dex::remove_liquidity(
+            &user,
+            tokenA,
+            tokenB,
+            lp_balance_after_add,
+            0,
+            0,
+            18446744073709551615
+        );
 
         let lp_balance_final =
             token_factory_test::balance_of(address_of(&user), pool_addr);
@@ -648,7 +671,9 @@ module dynexus_swap::test_dynaswap {
     #[test(admin = @dynexus_swap)]
     fun test_swap_with_fee(admin: &signer) {
         setup(admin);
-        let (provider, tokenA, tokenB, pool_addr) = create_token_pair_with_pool(admin);
+        let (
+            provider, tokenA, tokenB, pool_addr
+        ) = create_token_pair_with_pool(admin);
 
         // Step 5: Add liquidity
         let amount_x_desired = quants(8, 8);
@@ -721,7 +746,10 @@ module dynexus_swap::test_dynaswap {
         assert!(tokenB_balance > 0, 5001);
 
         // Assert platform_fee_recipient received fee
-        let config = dex::get_dex_object_address();
+        let config = {
+            let (_, _, recipient) = dex::get_fee_config();
+            recipient
+        };
         let fee_recipient_balance = token_factory_test::balance_of(config, tokenA);
         assert!(fee_recipient_balance > 0, 5002);
     }
@@ -729,7 +757,9 @@ module dynexus_swap::test_dynaswap {
     #[test(admin = @dynexus_swap)]
     fun test_swap_with_slippage(admin: &signer) {
         setup(admin);
-        let (provider, tokenA, tokenB, pool_addr) = create_token_pair_with_pool(admin);
+        let (
+            provider, tokenA, tokenB, pool_addr
+        ) = create_token_pair_with_pool(admin);
 
         // Add initial liquidity
         let amount_x_desired = quants(1000, 8);
@@ -795,7 +825,9 @@ module dynexus_swap::test_dynaswap {
     #[expected_failure(abort_code = dex::E_INSUFFICIENT_OUTPUT_AMOUNT)]
     fun test_swap_fails_with_high_slippage(admin: &signer) {
         setup(admin);
-        let (provider, tokenA, tokenB, pool_addr) = create_token_pair_with_pool(admin);
+        let (
+            provider, tokenA, tokenB, pool_addr
+        ) = create_token_pair_with_pool(admin);
 
         // Add small liquidity to create price impact
         let amount_x_desired = quants(100, 8);
@@ -847,7 +879,9 @@ module dynexus_swap::test_dynaswap {
     #[test(admin = @dynexus_swap)]
     fun test_add_liquidity_uneven_amounts(admin: &signer) {
         setup(admin);
-        let (provider, tokenA, tokenB, pool_addr) = create_token_pair_with_pool(admin);
+        let (
+            provider, tokenA, tokenB, pool_addr
+        ) = create_token_pair_with_pool(admin);
 
         // Get initial reserves
 
@@ -856,8 +890,9 @@ module dynexus_swap::test_dynaswap {
         let amount_x_d = quants(10, 8);
         let amount_y_d = quants(1, 8); // Maintains 10:1 ratio
 
-        let (token_x, token_y, amount_x, amount_y) =
-            dex::sort_token(tokenA, tokenB, amount_x_d, amount_y_d);
+        let (
+            token_x, token_y, amount_x, amount_y
+        ) = dex::sort_token(tokenA, tokenB, amount_x_d, amount_y_d);
         let (initial_reserve_x, initial_reserve_y) = dex::get_pool_reserves(pool_addr);
 
         let (amount_x_min, amount_y_min) =
@@ -898,7 +933,9 @@ module dynexus_swap::test_dynaswap {
     #[test(admin = @dynexus_swap)]
     fun test_remove_partial_liquidity(admin: &signer) {
         setup(admin);
-        let (provider, tokenA, tokenB, pool_addr) = create_token_pair_with_pool(admin);
+        let (
+            provider, tokenA, tokenB, pool_addr
+        ) = create_token_pair_with_pool(admin);
 
         // Add liquidity
         let amount_x = quants(1000, 8);
@@ -921,7 +958,15 @@ module dynexus_swap::test_dynaswap {
 
         // Remove 50% of liquidity
         let lp_to_remove = total_lp / 2;
-        dex::remove_liquidity(&provider, tokenA, tokenB, lp_to_remove);
+        dex::remove_liquidity(
+            &provider,
+            tokenA,
+            tokenB,
+            lp_to_remove,
+            0,
+            0,
+            18446744073709551615
+        );
 
         // Verify balances
         let remaining_lp =
@@ -936,7 +981,9 @@ module dynexus_swap::test_dynaswap {
     #[test(admin = @dynexus_swap)]
     fun test_price_impact_calculation(admin: &signer) {
         setup(admin);
-        let (provider, tokenA, tokenB, pool_addr) = create_token_pair_with_pool(admin);
+        let (
+            provider, tokenA, tokenB, pool_addr
+        ) = create_token_pair_with_pool(admin);
 
         // Add substantial liquidity
         let amount_x = quants(1000, 8);
@@ -986,7 +1033,9 @@ module dynexus_swap::test_dynaswap {
     #[test(admin = @dynexus_swap)]
     fun test_fee_distribution(admin: &signer) {
         setup(admin);
-        let (provider, tokenA, tokenB, pool_addr) = create_token_pair_with_pool(admin);
+        let (
+            provider, tokenA, tokenB, pool_addr
+        ) = create_token_pair_with_pool(admin);
 
         // Add substantial liquidity (10,000:1,000 ratio)
         let amount_x = quants(1000, 8);
@@ -1014,7 +1063,10 @@ module dynexus_swap::test_dynaswap {
         );
 
         // Get initial balances and reserves
-        let dex_config_addr = dex::get_dex_object_address();
+        let dex_config_addr = {
+            let (_, _, recipient) = dex::get_fee_config();
+            recipient
+        };
         let initial_platform_balance =
             token_factory_test::balance_of(dex_config_addr, tokenA);
         let initial_pool_balance = token_factory_test::balance_of(pool_addr, tokenA);
@@ -1035,11 +1087,15 @@ module dynexus_swap::test_dynaswap {
 
             // Calculate expected fees for this swap
             let expected_platform_fee =
-                ((amount as u128) * (PLATFORM_FEE_PERCENT as u128)
-                    / (FEE_DENOMINATOR as u128) as u64);
+                (
+                    (amount as u128) * (PLATFORM_FEE_PERCENT as u128)
+                        / (FEE_DENOMINATOR as u128) as u64
+                );
             let expected_swap_fee =
-                ((amount as u128) * (DEFAULT_FEE_PERCENT as u128)
-                    / (FEE_DENOMINATOR as u128) as u64);
+                (
+                    (amount as u128) * (DEFAULT_FEE_PERCENT as u128)
+                        / (FEE_DENOMINATOR as u128) as u64
+                );
             total_expected_platform_fee += expected_platform_fee;
             total_expected_swap_fee += expected_swap_fee;
 
@@ -1066,8 +1122,10 @@ module dynexus_swap::test_dynaswap {
         let actual_swap_fee =
             (final_pool_balance - initial_pool_balance)
                 - (
-                    ((total_swapped as u128) * (DEFAULT_FEE_PERCENT as u128)
-                        / (FEE_DENOMINATOR as u128)) as u64
+                    (
+                        (total_swapped as u128) * (DEFAULT_FEE_PERCENT as u128)
+                            / (FEE_DENOMINATOR as u128)
+                    ) as u64
                 );
 
         // Calculate net amount that went to reserves (after all fees)
@@ -1189,7 +1247,9 @@ module dynexus_swap::test_dynaswap {
     #[test(admin = @dynexus_swap)]
     fun test_lp_token_transfer(admin: &signer) {
         setup(admin);
-        let (provider, tokenA, tokenB, pool_addr) = create_token_pair_with_pool(admin);
+        let (
+            provider, tokenA, tokenB, pool_addr
+        ) = create_token_pair_with_pool(admin);
 
         // Add liquidity
         let amount_x = quants(1000, 8);
@@ -1230,13 +1290,20 @@ module dynexus_swap::test_dynaswap {
             token_factory_test::balance_of(address_of(&recipient), lp_address);
 
         assert!(
-            provider_balance == initial_lp_balance - transfer_amount,
-            12001
+            provider_balance == initial_lp_balance - transfer_amount, 12001
         );
         assert!(recipient_balance == transfer_amount, 12002);
 
         // Recipient should be able to remove liquidity
-        dex::remove_liquidity(&recipient, tokenA, tokenB, recipient_balance);
+        dex::remove_liquidity(
+            &recipient,
+            tokenA,
+            tokenB,
+            recipient_balance,
+            0,
+            0,
+            18446744073709551615
+        );
 
         // Verify recipient received underlying tokens
         let tokenA_balance =

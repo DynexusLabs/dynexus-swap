@@ -3,7 +3,10 @@
 module dynexus_swap::enhanced_test_dynaswap {
     use std::signer::address_of;
     use std::string::{utf8, String};
-    use aptos_framework::account::{create_account_for_test, create_signer_for_test};
+    use aptos_framework::account::{
+        create_account_for_test,
+        create_signer_for_test
+    };
     use aptos_framework::genesis;
     use aptos_framework::timestamp;
     use dynexus_forge::token_factory;
@@ -74,7 +77,6 @@ module dynexus_swap::enhanced_test_dynaswap {
     }
 
     // ===== INVARIANT TESTS =====
-
     #[test(admin = @dynexus_swap)]
     fun test_k_invariant_maintenance(admin: &signer) {
         setup(admin);
@@ -293,7 +295,6 @@ module dynexus_swap::enhanced_test_dynaswap {
     }
 
     // ===== EDGE CASE TESTS =====
-
     #[test(admin = @dynexus_swap)]
     fun test_minimum_liquidity_enforcement(admin: &signer) {
         setup(admin);
@@ -351,7 +352,15 @@ module dynexus_swap::enhanced_test_dynaswap {
 
         // Try to remove almost all liquidity (should leave minimum)
         let remove_amount = lp_balance - MIN_LIQUIDITY;
-        dex::remove_liquidity(&provider, tokenA, tokenB, remove_amount);
+        dex::remove_liquidity(
+            &provider,
+            tokenA,
+            tokenB,
+            remove_amount,
+            0,
+            0,
+            18446744073709551615
+        );
 
         // Check that minimum liquidity remains
         let remaining_lp =
@@ -521,7 +530,6 @@ module dynexus_swap::enhanced_test_dynaswap {
     }
 
     // ===== STRESS TESTS =====
-
     #[test(admin = @dynexus_swap)]
     fun test_high_volume_trading(admin: &signer) {
         setup(admin);
@@ -712,7 +720,6 @@ module dynexus_swap::enhanced_test_dynaswap {
     }
 
     // ===== SECURITY TESTS =====
-
     #[test(admin = @dynexus_swap)]
     fun test_flash_loan_protection(admin: &signer) {
         setup(admin);
@@ -874,7 +881,6 @@ module dynexus_swap::enhanced_test_dynaswap {
     }
 
     // ===== ECONOMIC TESTS =====
-
     #[test(admin = @dynexus_swap)]
     fun test_impermanent_loss_calculation(admin: &signer) {
         setup(admin);
@@ -956,7 +962,15 @@ module dynexus_swap::enhanced_test_dynaswap {
             address_of(&provider), lp_address
         );
 
-        dex::remove_liquidity(&provider, tokenA, tokenB, lp_balance);
+        dex::remove_liquidity(
+            &provider,
+            tokenA,
+            tokenB,
+            lp_balance,
+            0,
+            0,
+            18446744073709551615
+        );
 
         // Check final balances
         let final_a = token_factory_test::balance_of(address_of(&provider), tokenA);
@@ -1015,7 +1029,10 @@ module dynexus_swap::enhanced_test_dynaswap {
             quants(10, 8)
         );
 
-        let dex_config = dex::get_dex_object_address();
+        let dex_config = {
+            let (_, _, recipient) = dex::get_fee_config();
+            recipient
+        };
         let initial_platform_fee = token_factory_test::balance_of(dex_config, tokenA);
 
         // Simulate trading over time
@@ -1041,8 +1058,10 @@ module dynexus_swap::enhanced_test_dynaswap {
             let (res_y, res_x) = dex::get_pool_reserves(pool_addr);
             let amount = max_single_swap(res_x);
             total_volume += amount;
-            expected_platform_fee +=((amount as u128) * (PLATFORM_FEE_PERCENT as u128)
-                / (FEE_DENOMINATOR as u128) as u64);
+            expected_platform_fee += (
+                (amount as u128) * (PLATFORM_FEE_PERCENT as u128)
+                    / (FEE_DENOMINATOR as u128) as u64
+            );
 
             let amount_out = dex::get_amount_out(amount, res_x, res_y);
             dex::swap(
@@ -1148,7 +1167,15 @@ module dynexus_swap::enhanced_test_dynaswap {
 
         // Remove liquidity to claim accumulated fees
         let liquidity_to_remove = lp_token_balance_before / 2; // Remove half the liquidity
-        dex::remove_liquidity(&provider, tokenA, tokenB, liquidity_to_remove);
+        dex::remove_liquidity(
+            &provider,
+            tokenA,
+            tokenB,
+            liquidity_to_remove,
+            0,
+            0,
+            18446744073709551615
+        );
 
         // Check final balances
         let final_a = token_factory_test::balance_of(address_of(&provider), tokenA);

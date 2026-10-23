@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
-# Blocks committing env files, keys and Aptos CLI profiles (they hold private keys).
+# Blocks committing env files, keys, Aptos CLI profiles and Aptos private keys in file contents.
 # Usage: guard-env.sh <file>...   (lefthook passes staged files)
 status=0
+key_pattern='ed25519-priv-0x[0-9a-fA-F]{64}|(private_key|PRIVATE_KEY)[[:space:]]*[:=][[:space:]]*["'"'"']?0x[0-9a-fA-F]{64}'
 for f in "$@"; do
   base=$(basename "$f")
   case "$f" in
@@ -14,6 +15,9 @@ for f in "$@"; do
   esac
   if [ "$blocked" = 1 ]; then
     echo "guard-env: refusing to commit secret-bearing file: $f" >&2
+    status=1
+  elif [ -f "$f" ] && grep -qE "$key_pattern" -- "$f" 2>/dev/null; then
+    echo "guard-env: Aptos private key found in: $f" >&2
     status=1
   fi
 done
