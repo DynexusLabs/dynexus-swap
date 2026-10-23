@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, phase_1]
+
+permissions:
+  contents: read
+
+env:
+  APTOS_CLI_VERSION: 9.6.0
+  GITLEAKS_VERSION: 8.30.1
+
+jobs:
+  secrets:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        run: |
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz gitleaks
+          ./gitleaks git --redact --verbose .
+
+  move:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: dynexus-swap
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: dynexus-swap
+      - uses: actions/checkout@v4
+        with:
+          repository: DynexusLabs/dynexus-forge
+          ref: phase_1
+          path: dynexus-forge
+          # forge is private: org/repo secret with read access to DynexusLabs/dynexus-forge
+          token: ${{ secrets.DYNEXUS_READ_TOKEN }}
+      - uses: oven-sh/setup-bun@v2
+      - name: Install Aptos CLI
+        run: |
+          curl -fsSL -o /tmp/aptos.zip "https://github.com/aptos-labs/aptos-core/releases/download/aptos-cli-v${APTOS_CLI_VERSION}/aptos-cli-${APTOS_CLI_VERSION}-Ubuntu-24.04-x86_64.zip"
+          sudo unzip -o /tmp/aptos.zip -d /usr/local/bin
+          aptos --version
+      - run: bun install --frozen-lockfile
+      - name: Lint commit messages
+        if: github.event_name == 'pull_request'
+        run: |
+          git -C . fetch --no-tags origin "${{ github.base_ref }}" "${{ github.head_ref }}" --depth=100
+          bunx commitlint --from "origin/${{ github.base_ref }}" --to "origin/${{ github.head_ref }}" --verbose
+      - name: Format check
+        run: |
+          aptos move fmt
+          bunx prettier --check "**/*.{md,yml,yaml,json}"
+          git diff --exit-code
+      - name: Test
+        run: aptos move test

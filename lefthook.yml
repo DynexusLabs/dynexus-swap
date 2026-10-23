@@ -1,0 +1,35 @@
+# Git hooks — installed by `bun install` (prepare script). Docs: https://lefthook.dev
+pre-commit:
+  piped: true
+  commands:
+    env-guard:
+      priority: 1
+      run: sh scripts/guard-env.sh {staged_files}
+    secretlint:
+      priority: 2
+      run: bunx secretlint --maskSecrets {staged_files}
+    move-fmt:
+      priority: 3
+      glob: "*.move"
+      run: aptos move fmt --file-path {staged_files}
+      stage_fixed: true
+    prettier:
+      priority: 4
+      glob: "*.{md,yml,yaml,json}"
+      run: bunx prettier --write {staged_files}
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    commitlint:
+      run: bunx commitlint --edit {1}
+
+pre-push:
+  piped: true
+  commands:
+    secretlint:
+      priority: 1
+      run: bunx secretlint --maskSecrets "**/*"
+    move-test:
+      priority: 2
+      run: aptos move test
