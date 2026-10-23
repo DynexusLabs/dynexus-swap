@@ -1,0 +1,19 @@
+[package]
+name = "DynexusSwap"
+version = "1.1.0"
+authors = ["Meet Rathod"]
+
+[addresses]
+dynexus_swap = "_"
+
+[dev-addresses]
+dynexus_swap = "0xf1"
+dynexus_forge = "0xf0"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+[dependencies.DynexusForge]
+local = "../dynexus-forge"

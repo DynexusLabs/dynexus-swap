@@ -33,3 +33,4 @@ Make sure you have the Aptos CLI installed.
 
 ```bash
 aptos move test
+```

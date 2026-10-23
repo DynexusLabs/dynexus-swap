@@ -1,0 +1,13 @@
+.aptos/
+.idea/
+build/
+# dependencies / tooling
+node_modules/
+
+# secrets — never commit (enforced by scripts/guard-env.sh)
+.env
+.env.*
+!.env.example
+.aptos/
+*.pem
+*.key
