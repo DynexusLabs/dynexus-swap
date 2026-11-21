@@ -1,5 +1,7 @@
 # Dynexus Swap
 
+[![CI](https://github.com/DynexusLabs/dynexus-swap/actions/workflows/ci.yml/badge.svg)](https://github.com/DynexusLabs/dynexus-swap/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Network: Aptos testnet](https://img.shields.io/badge/network-Aptos%20testnet-00d9ff.svg)](https://aptos.dev)
+
 **Dynexus Swap** is the decentralized exchange (DEX) and automated market maker (AMM) module within the [Dynexus](https://github.com/DynexusLabs/dynexus) DeFi ecosystem.
 
 It enables permissionless token swaps and liquidity pool creation for DYNA and any custom tokens created through [Dynexus Forge](https://github.com/DynexusLabs/dynexus-forge).
