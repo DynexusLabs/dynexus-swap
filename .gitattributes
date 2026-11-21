@@ -1,0 +1,4 @@
+* text=auto eol=lf
+*.lock -diff linguist-generated
+bun.lock -diff linguist-generated
+Cargo.lock -diff linguist-generated
