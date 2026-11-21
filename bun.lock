@@ -7,7 +7,7 @@
       "devDependencies": {
         "@commitlint/cli": "21.2.4",
         "@commitlint/config-conventional": "21.2.4",
-        "@secretlint/secretlint-rule-preset-recommend": "13.0.7",
+        "@secretlint/secretlint-rule-preset-recommend": "13.1.0",
         "lefthook": "2.2.2",
         "prettier": "3.10.1",
         "secretlint": "13.0.7",
@@ -75,7 +75,7 @@
 
     "@secretlint/resolver": ["@secretlint/resolver@13.0.7", "", {}, "sha512-Ru3qBQqfi9s/uazHiVcyAvlQuq3X8q/8eXNqacZ0r/DvWtjb2JBBhIjzx/RrbfJhlsd5yjsrE6C1/Q710Em1Hw=="],
 
-    "@secretlint/secretlint-rule-preset-recommend": ["@secretlint/secretlint-rule-preset-recommend@13.0.7", "", {}, "sha512-hfdYra+ZB6RmviEApxeL/YCx4ovBtpj0d9c+uhlCZaCikObjb8Sb8yqBN6g8/9tt7qD7LXGE3k9RtVvGK1fNVw=="],
+    "@secretlint/secretlint-rule-preset-recommend": ["@secretlint/secretlint-rule-preset-recommend@13.1.0", "", {}, "sha512-dPnplMyjJYpVCJDNTjpUA8c/AfoHbWANJJJWKroK50DGGhAB4Oumzk+XinBMyMMAwgOsjU9CB9lUHXDvObMVCg=="],
 
     "@secretlint/source-creator": ["@secretlint/source-creator@13.0.7", "", { "dependencies": { "@secretlint/types": "13.0.7", "istextorbinary": "^9.5.0" } }, "sha512-agf2lHf3f5CRHl7ZSQV2NTx4niPOf9qkLnuowSGoqeWycK5PTuyinlTqp6iq0gQt6TBhvyFu3nKNkXcrB9jWxw=="],
 
